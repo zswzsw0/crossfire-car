@@ -1,0 +1,127 @@
+已读取配置 /opt/beacon_race.cfg (42 项)
+已读取配置 beacon_race.cfg (42 项)
+Open serial port success: /dev/ttyUSB0, baudrate: 115200
+摄像头实际参数: 320 x 240 @ 30.00 fps
+FOURCC: MJPG
+realDelayMs: 33.3 ms
+ImgStream: listening on port 9999
+beaconRace 启动 | WAIT_CARD | drive=on force=off gyro_yaw=on
+蓝卡 A(1,0.9) -> (7,-0.9)
+红卡 B(1,-0.9) -> (7,0.9)
+按键: f改HSV q保存 l重载 x停车/恢复 v切换画面 c退出
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+ImgStream: client 192.168.1.20
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok BLUE
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok BLUE
+
+CARD=blue base(1,0.9) goal(7,-0.9) gyro_bias=0 rad/s n=101
+NAV_BASE card=blue pose=(0.00098868,-0.00154538) yaw=11.2808deg vx=0.6 wz=0.55 err=0.537273 odom=ok 
+NAV_BASE card=blue pose=(0.521062,0.285234) yaw=40.2173deg vx=0.6 wz=0.248438 err=0.207032 odom=ok 
+NAV_BASE card=blue pose=(0.869167,0.641224) yaw=53.4003deg vx=0.231976 wz=0.204819 err=0.170682 odom=ok 
+NAV_BASE card=blue pose=(0.919401,0.717686) yaw=38.1641deg vx=0 wz=-0.55 err=-0.666089 odom=ok 
+
+到达据点，停车 3 秒
+WAIT_BASE card=blue pose=(0.921531,0.715313) yaw=8.57391deg vx=0 wz=0 err=0 odom=ok 
+WAIT_BASE card=blue pose=(0.919289,0.713738) yaw=6.87683deg vx=0 wz=0 err=0 odom=ok 
+WAIT_BASE card=blue pose=(0.919289,0.713738) yaw=6.87683deg vx=0 wz=0 err=0 odom=ok 
+
+离开据点，前往终点
+NAV_GOAL card=blue pose=(0.919289,0.713738) yaw=6.87683deg vx=0.1 wz=-0.455316 err=-0.37943 odom=ok 
+NAV_GOAL card=blue pose=(1.00913,0.706951) yaw=-10.9967deg vx=0.1 wz=-0.0841629 err=-0.0701358 odom=ok 
+NAV_GOAL card=blue pose=(1.11042,0.682695) yaw=-14.8062deg vx=0.1 wz=-0.00493057 err=-0.00410881 odom=ok 
+NAV_GOAL card=blue pose=(1.23381,0.641206) yaw=-26.9247deg vx=0.1 wz=0.250497 err=0.208747 odom=ok 
+NAV_GOAL card=blue pose=(1.33513,0.591687) yaw=-20.3024deg vx=0.08 wz=-0.00375999 err=0.0968667 odom=ok 
+NAV_GOAL card=blue pose=(1.42913,0.55971) yaw=-17.5174deg vx=0.08 wz=-0.240634 err=0.049472 odom=ok 
+NAV_GOAL card=blue pose=(1.50253,0.526808) yaw=-34.9194deg vx=0.1 wz=-0.123373 err=0.355523 odom=ok 
+NAV_GOAL card=blue pose=(1.59396,0.434438) yaw=-50.4114deg vx=0.15 wz=-0.528107 err=0.340625 odom=ok 
+NAV_GOAL card=blue pose=(1.67279,0.353324) yaw=-34.3127deg vx=0.1 wz=0.411365 err=0.367804 odom=ok 
+NAV_GOAL card=blue pose=(1.76538,0.312479) yaw=-16.6443deg vx=0.1 wz=0.0754613 err=0.0628844 odom=ok 
+NAV_GOAL card=blue pose=(1.865,0.285632) yaw=-13.5596deg vx=0.1 wz=0.0116919 err=0.00974327 odom=ok 
+NAV_GOAL card=blue pose=(1.96826,0.261616) yaw=-12.6974deg vx=0.1 wz=-0.00632453 err=-0.00527044 odom=ok 
+NAV_GOAL card=blue pose=(2.06925,0.237263) yaw=-12.7762deg vx=0.1 wz=-0.0044355 err=-0.00369625 odom=ok 
+NAV_GOAL card=blue pose=(2.1727,0.215318) yaw=-13.1073deg vx=0.1 wz=0.00204734 err=0.00170612 odom=ok 
+NAV_GOAL card=blue pose=(2.27479,0.191587) yaw=-12.7341deg vx=0.1 wz=-0.00573512 err=-0.00477927 odom=ok 
+NAV_GOAL card=blue pose=(2.37645,0.168654) yaw=-12.8534deg vx=0.1 wz=-0.00337225 err=-0.0028102 odom=ok 
+NAV_GOAL card=blue pose=(2.47847,0.146107) yaw=-12.4243deg vx=0.1 wz=-0.0126189 err=-0.0105157 odom=ok 
+NAV_GOAL card=blue pose=(2.5813,0.122336) yaw=-13.3789deg vx=0.1 wz=0.00736902 err=0.00614085 odom=ok 
+NAV_GOAL card=blue pose=(2.68251,0.0984322) yaw=-13.4647deg vx=0.1 wz=0.00929361 err=0.00774468 odom=ok 
+NAV_GOAL card=blue pose=(2.7713,0.0787876) yaw=-20.6897deg vx=0.08 wz=-0.379625 err=0.133646 odom=ok 
+NAV_GOAL card=blue pose=(2.86432,0.0112259) yaw=-47.0596deg vx=0.15 wz=-0.55 err=0.428125 odom=ok 
+NAV_GOAL card=blue pose=(2.93598,-0.102934) yaw=-65.9695deg vx=0 wz=0.55 err=0.957716 odom=ok 
+NAV_GOAL card=blue pose=(2.9742,-0.16687) yaw=-56.7679deg vx=0 wz=0.55 err=0.810653 odom=ok 
+NAV_GOAL card=blue pose=(3.01643,-0.220236) yaw=-39.9158deg vx=0.15 wz=-0.460388 err=0.532813 odom=ok 
+NAV_GOAL card=blue pose=(3.10854,-0.28075) yaw=-18.793deg vx=0.1 wz=0.204232 err=0.170193 odom=ok 
+NAV_GOAL card=blue pose=(3.19168,-0.304239) yaw=-21.7484deg vx=0.08 wz=-0.280718 err=0.224401 odom=ok 
+NAV_GOAL card=blue pose=(3.28074,-0.363819) yaw=-41.8588deg vx=0.15 wz=-0.55 err=0.354687 odom=ok 
+NAV_GOAL card=blue pose=(3.35521,-0.448524) yaw=-52.7002deg vx=0.12 wz=-0.55 err=0.4875 odom=ok 
+NAV_GOAL card=blue pose=(3.40344,-0.515916) yaw=-52.3517deg vx=0.12 wz=-0.55 err=0.420312 odom=ok 
+NAV_GOAL card=blue pose=(3.43679,-0.550241) yaw=-33.1961deg vx=0.1 wz=0.19449 err=0.481536 odom=ok 
+NAV_GOAL card=blue pose=(3.5442,-0.606396) yaw=-29.5172deg vx=0.1 wz=0.160652 err=0.430416 odom=ok 
+NAV_GOAL card=blue pose=(3.64927,-0.69856) yaw=-52.2556deg vx=0.15 wz=-0.134308 err=0.160938 odom=ok 
+NAV_GOAL card=blue pose=(3.73441,-0.79465) yaw=-33.7265deg vx=0.1 wz=0.55 err=0.556389 odom=ok 
+NAV_GOAL card=blue pose=(3.86368,-0.841317) yaw=-7.39777deg vx=0.1 wz=0.486498 err=0.110407 odom=ok 
+NAV_GOAL card=blue pose=(3.96801,-0.83863) yaw=10.8603deg vx=0.1 wz=0.0632011 err=-0.209786 odom=ok 
+NAV_GOAL card=blue pose=(4.07089,-0.81619) yaw=12.3553deg vx=0.1 wz=-0.0394168 err=-0.244246 odom=ok 
+NAV_GOAL card=blue pose=(4.17577,-0.793495) yaw=12.088deg vx=0.08 wz=-0.226974 err=-0.248669 odom=ok 
+NAV_GOAL card=blue pose=(4.2751,-0.776613) yaw=2.68707deg vx=0.08 wz=-0.522804 err=-0.0921486 odom=ok 
+NAV_GOAL card=blue pose=(4.3591,-0.790669) yaw=-18.439deg vx=0.1 wz=-0.0884996 err=0.280446 odom=ok 
+NAV_GOAL card=blue pose=(4.45838,-0.833495) yaw=-30.3876deg vx=0.12 wz=-0.55 err=0.48125 odom=ok 
+NAV_GOAL card=blue pose=(4.54424,-0.892813) yaw=-42.7744deg vx=0.12 wz=-0.55 err=0.703125 odom=ok 
+NAV_GOAL card=blue pose=(4.59629,-0.951294) yaw=-45.5301deg vx=0 wz=0.55 err=0.815986 odom=ok 
+NAV_GOAL card=blue pose=(4.64586,-0.987907) yaw=-26.1032deg vx=0.12 wz=-0.36619 err=0.215625 odom=ok 
+NAV_GOAL card=blue pose=(4.73591,-1.03718) yaw=-24.7275deg vx=0.1 wz=0.318889 err=0.492093 odom=ok 
+NAV_GOAL card=blue pose=(4.84796,-1.08364) yaw=-23.4824deg vx=0.15 wz=-0.55 err=0.760938 odom=ok 
+NAV_GOAL card=blue pose=(4.97193,-1.14405) yaw=-34.9847deg vx=0.15 wz=-0.55 err=0.545833 odom=ok 
+NAV_GOAL card=blue pose=(5.04546,-1.20813) yaw=-37.0941deg vx=0 wz=0.55 err=0.803777 odom=ok 
+NAV_GOAL card=blue pose=(5.11413,-1.23411) yaw=-9.68018deg vx=0.1 wz=0.55 err=0.344298 odom=ok 
+NAV_GOAL card=blue pose=(5.22303,-1.23509) yaw=15.755deg vx=0.1 wz=0.231575 err=-0.0885908 odom=ok 
+NAV_GOAL card=blue pose=(5.32917,-1.18937) yaw=24.3619deg vx=0.12 wz=-0.0557262 err=-0.253709 odom=ok 
+NAV_GOAL card=blue pose=(5.44541,-1.14029) yaw=20.2997deg vx=0.12 wz=-0.0888892 err=-0.200941 odom=ok 
+NAV_GOAL card=blue pose=(5.56555,-1.10139) yaw=14.9649deg vx=0.12 wz=-0.0799344 err=-0.1217 odom=ok 
+NAV_GOAL card=blue pose=(5.69018,-1.07406) yaw=10.6885deg vx=0.12 wz=-0.065321 err=-0.0544342 odom=ok 
+NAV_GOAL card=blue pose=(5.81321,-1.05468) yaw=7.95013deg vx=0.12 wz=-0.0109846 err=-0.0091538 odom=ok 
+NAV_GOAL card=blue pose=(5.93811,-1.03743) yaw=7.23267deg vx=0.12 wz=0.00296644 err=0.00247203 odom=ok 
+NAV_GOAL card=blue pose=(6.06329,-1.0224) yaw=7.40601deg vx=0.12 wz=0.000814349 err=0.000678625 odom=ok 
+NAV_GOAL card=blue pose=(6.18909,-1.00431) yaw=7.51282deg vx=0.12 wz=-0.00383383 err=-0.00319486 odom=ok 
+NAV_GOAL card=blue pose=(6.3158,-0.989229) yaw=7.27051deg vx=0.12 wz=0.00334428 err=0.0027869 odom=ok 
+NAV_GOAL card=blue pose=(6.43947,-0.974354) yaw=7.09106deg vx=0.12 wz=0.00974173 err=0.00811811 odom=ok 
+NAV_GOAL card=blue pose=(6.56612,-0.957239) yaw=7.4649deg vx=0.12 wz=0.00105542 err=0.000879516 odom=ok 
+NAV_GOAL card=blue pose=(6.69389,-0.942171) yaw=7.62665deg vx=0.12 wz=0.0045508 err=0.00379234 odom=ok 
+
+到达终点，停车
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.77924,-0.929346) yaw=7.52441deg vx=0 wz=0 err=0 odom=ok 
