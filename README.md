@@ -62,3 +62,33 @@ sh /home/mark/vm_watch.sh
 | 二进制 | 141368 字节，md5 `871b0deafd151c11e44d0c280a1e9e99` |
 | 配置 | 1783 字节，md5 `a8b0de8d45140fcc264d67ba419175b2`（42 项） |
 | 源码 | `C:\Users\rdp\Downloads\成功方案\beaconRace.cpp`（58630 字节） |
+
+## 版本与 tag
+
+| tag | 含义 | 关键参数 | 实测结果 |
+|---|---|---|---|
+| `v1.0-baseline` | 成功方案原样复位 | `vel_x_vision=0.15`、`goal_pos_tol=0.25` | 蓝卡 A 线终点误差 0.220 m；红卡 B 线见 `baseline/success_run.log` |
+| `v1.1-blue-card-ok` | **蓝色卡慢速成功** | `vel_x_vision=0.30`、`goal_pos_tol=0.12` | 蓝卡 A 线 2026-11-18 10:12：终点 `(6.89363, -0.90012)`，误差 **0.106 m**，终点航向 1.41°，行驶段 53 s |
+
+`v1.1` 相对基线的全部差异（只有两项，均在 cfg 里，改完重启即可）：
+
+```diff
+-vel_x_vision=0.15
++vel_x_vision=0.30
+-goal_pos_tol=0.25
++goal_pos_tol=0.12
+```
+
+参数含义与踩坑记录：
+
+- `vel_x_vision` 是「识别到黑点、进入巡线模式」时的线速度。翻倍后实测只快约 5%，
+  因为全程约 58% 的帧处于**丢线**状态（速度走 `LOST_VX=0.10` 兜底），近终点段
+  （`d<1.80m`）又受编译期常量 `NEAR_VX_MAX=0.12` 限制。
+- `goal_pos_tol` 原来是**停车判据**：`dist < goal_pos_tol` 直接 `DONE`。0.25 时车
+  在营地门口就停了，后面的减速项 $v_x=\mathrm{clamp}(0.5d,0.05,0.12)$ 根本轮不到。
+  改成 0.12 后车会带减速进入营地，实测末段出现 `vx=0.0818` 的减速档。
+- 两者都**不需要重新编译**；编译期常量（`NEAR_VX_MAX`、`AVOID_YAW_*`、`LOST_VX`、
+  `SPIN_YAW`、`CONE_PATH_HALF_W`、`CORRIDOR_*`）要改则必须走 `deploy.ps1`。
+
+运行日志存档在 `run_logs/`。
+
