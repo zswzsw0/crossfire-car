@@ -1,0 +1,20 @@
+# 构建/传输产物，不进版本库
+transfer/
+*.xwd
+*.tgz
+*.tar.gz
+*.zip
+
+# 运行期截图与日志（都是可再生成的分析素材）
+*.png
+*.jpg
+*.jpeg
+run_report.log
+
+# Python / 编辑器杂项
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
