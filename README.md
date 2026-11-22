@@ -90,6 +90,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\save_run_log.ps1 -Card blu
 |---|---|---|---|
 | `v1.0-baseline` | 成功方案原样复位 | `vel_x_vision=0.15`、`goal_pos_tol=0.25` | 蓝卡 A 线终点误差 0.220 m；红卡 B 线见 `baseline/success_run.log` |
 | `v1.1-blue-card-ok` | **蓝色卡慢速成功** | `vel_x_vision=0.30`、`goal_pos_tol=0.12` | 蓝卡 A 线 2026-11-18 10:12：终点 `(6.89363, -0.90012)`，误差 **0.106 m**，终点航向 1.41°，行驶段 53 s |
+| **`v1.4`** | **稳定版：全阶段 1.5x + 入口航向收敛** | `vel_x_vision=0.675`、`vel_x_odom=1.35`、`vel_z_max=0.55`、`goal_pos_tol=0.12`、`ENTRY_ALIGN_DIST=1.80` | **6 轮全过**：蓝 A 误差 0.083/0.093 m、红 B 0.0806~0.1195 m；航向 1.1~6.9°；行驶 21~25 s；角速度零饱和 |
+
+`v1.4` 是**唯一经过多轮实测验证的稳定基线**（二进制 md5 `78991d27`，配置快照 `cfg/beacon_race.fast225x.cfg`）。
+之后的 `分区提速 1.0 / 2.0` 虽然更快（16~19 s），但暴露了新的问题（终点 $x$ 过冲、雷区撞锥），尚未定版。
 
 `v1.1` 相对基线的全部差异（只有两项，均在 cfg 里，改完重启即可）：
 
