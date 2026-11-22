@@ -55,6 +55,27 @@ sh /home/root/cam_preview.sh start | stop | status
 sh /home/mark/vm_watch.sh
 ```
 
+## 运行日志存档（重要）
+
+**车上的 `/tmp/br_run.log` 是内存文件系统，重启/断电即失，且每次启动会被 `>` 清空。**
+所以每次实测结束都必须把日志拉回 PC 存档。
+
+| 文件 | 作用 |
+|---|---|
+| `save_run_log.ps1` | 手动存档：从车上拉 `/tmp/br_run.log` + 当时的 `beacon_race.cfg`，生成 `.log` / `.cfg` / `.meta.txt` 三件套，并提交 git |
+| `watch_run_all.ps1` | 实测监看脚本，**结束时自动调用 `save_run_log.ps1`**，无需额外操作 |
+
+```powershell
+# 平时不用手动调，watch_run_all.ps1 结束会自动存档；
+# 只有在没开监看、想补存当前日志时才需要手动：
+powershell -NoProfile -ExecutionPolicy Bypass -File .\save_run_log.ps1 -Card blue -Result DONE -Seconds 18 -Note "goal 6.90 / tol 0.10"
+```
+
+存档命名：`run_logs/<日期>_<时分秒>_<卡色>_<结果>_<耗时>s.log`
+
+`.meta.txt` 里记录：二进制 md5、卡色、结果、耗时、NAV_GOAL 行数、原地空转次数、最大 vx、
+最终位姿、算好的终点误差、以及本轮备注。
+
 ## 复位基线（成功方案）
 
 | 项 | 值 |

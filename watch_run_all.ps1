@@ -161,6 +161,22 @@ while (((Get-Date) - $t0).TotalSeconds -lt $MaxSeconds) {
 # ---------- wrap up ----------
 foreach ($p in @($pBoard, $pView)) { try { if ($p -and -not $p.HasExited) { $p.Kill() } } catch {} }
 
+# ---------- archive the car's log onto this PC (kept off the car's /tmp) ----------
+$seconds = [int]((Get-Date) - $t0).TotalSeconds
+$save = Join-Path $PSScriptRoot 'save_run_log.ps1'
+if (Test-Path $save) {
+    $res = if ($doneAt) { 'DONE' } else { 'TIMEOUT' }
+    $cardArg = if ($card -and $card -ne '-') { $card } else { 'unknown' }
+    try {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $save `
+            -Card $cardArg -Result $res -Seconds $seconds `
+            -Note ("watcher run in report {0}" -f $report) 2>&1 |
+            ForEach-Object { Emit 'ARCHIVE' $_ }
+    } catch {
+        Emit 'ARCHIVE' ("log archive failed: " + $_.Exception.Message)
+    }
+}
+
 if ($doneAt) {
     Emit 'SUMMARY' ("PASS expected: DONE  card={0}  final pose=({1})  maxRed={2:N1}%  maxBlue={3:N1}%  pose changes={4}" -f $card, $lastPose, $maxRed, $maxBlue, $poseChanges)
     exit 0
