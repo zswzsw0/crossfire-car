@@ -1,4 +1,4 @@
-# Save one run of the car's log to this PC (and into git).
+﻿# Save one run of the car's log to this PC (and into git).
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\save_run_log.ps1
 #   ... -Card blue -Result DONE -Seconds 18 -Note "goal 6.90 / tol 0.10"
@@ -114,9 +114,19 @@ if (-not $NoCommit) {
     $ErrorActionPreference = 'Continue'
     try {
         & git add -- run_logs *> $null
-        $msg = "运行日志存档 $name`n`ncard=$Card result=$Result seconds=$Seconds error=$err`n$Note"
-        & git commit -q -m $msg *> $null
+        # Pass the message through a UTF-8 file: PowerShell hands Chinese argv to
+        # git.exe in the console codepage and the subject comes out as mojibake.
+        $msgFile = Join-Path $env:TEMP ("runlog_commit_{0}.txt" -f $stamp)
+        $msg = @(
+            "运行日志存档 $name",
+            "",
+            "card=$Card  result=$Result  seconds=$Seconds  error=$err",
+            $Note
+        ) -join "`n"
+        [System.IO.File]::WriteAllText($msgFile, $msg + "`n", (New-Object System.Text.UTF8Encoding($false)))
+        & git commit -q -F $msgFile *> $null
         $code = $LASTEXITCODE
+        Remove-Item $msgFile -Force -ErrorAction SilentlyContinue
         if ($code -eq 0) { Say 'committed to git' } else { Say 'nothing new to commit (or git busy)' }
     } catch {
         Say ("git step failed: " + $_.Exception.Message)

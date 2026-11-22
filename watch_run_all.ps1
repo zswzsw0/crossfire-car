@@ -1,4 +1,4 @@
-# Watch a whole beaconRace run without ever grabbing frames itself.
+﻿# Watch a whole beaconRace run without ever grabbing frames itself.
 #
 # It holds two long-lived SSH "tail -F" streams (one on the car, one on the VM viewer)
 # and turns them into an event timeline:
