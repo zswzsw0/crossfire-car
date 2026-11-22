@@ -105,7 +105,7 @@ static constexpr double SPIN_YAW = 0.6;
 static constexpr double LOST_YAW = 0.7;
 static constexpr double NEAR_VX_MAX = 0.27;   // ×1.5（再乘 1.5，原 0.18）：近终点段限速
 static constexpr double NEAR_VX_P = 1.125;    // ×1.5（再乘 1.5，原 0.75）：近终点距离比例系数
-static constexpr double LOST_VX = 0.225;      // ×1.5（再乘 1.5，原 0.15）：丢线兜底速度
+static constexpr double LOST_VX = 0.3375;     // ×1.5（外圈提速，终点区不受影响）：丢线兜底速度
 
 // ★ 终点入口收敛（按场地图：营地入口正对赛道，车应平着沿 +x 进入）
 //   速度再快 1.5 倍 → 收敛窗口与摆正时间同比例放大，否则会擦过目标点
@@ -817,7 +817,7 @@ private:
         if (dist > cfg_.goal_pos_tol) {
             double vx = 0, wz = clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max);
             if (std::abs(yaw_err) <= SPIN_YAW)
-                vx = clampd(cfg_.pos_p * dist, 0.1125, cfg_.vel_x_odom);   // 爬行下限 ×1.5（再乘 1.5）
+                vx = clampd(cfg_.pos_p * dist, 0.16875, cfg_.vel_x_odom);   // 爬行下限 ×1.5（去据点段，非终点区）
             send(vx, wz);
             erro_ = yaw_err;
             return false;
@@ -928,13 +928,13 @@ private:
             double vis_err = track->mid_x - CENTER_X;
             double wz = -vis_err * cfg_.vis_wz_gain + cfg_.odom_blend * cfg_.yaw_p * yaw_err
                       + corridor_wz + avoid_wz;
-            double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.27) : cfg_.vel_x_vision;   // 遇锥限速 ×1.5（再乘 1.5）
+            double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.405) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.5
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
         }
         double vx = std::abs(yaw_err) > LOST_YAW ? 0.0 : LOST_VX;
-        if (cone_here) vx = std::min(vx, 0.18);   // 丢线遇锥限速 ×1.5（再乘 1.5）
+        if (cone_here) vx = std::min(vx, 0.27);   // 丢线遇锥限速 ×1.5
         send(vx, clampd(cfg_.yaw_p * yaw_err + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
         erro_ = yaw_err;
         return false;
