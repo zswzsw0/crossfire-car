@@ -117,9 +117,13 @@ static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航�
 static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值就禁用入口摆平，继续指向目标
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离以上立即停车
 
-// ★ 出据点起步偏置：让车头朝赛道中央多偏一点，提前看清第一排中间的锥桶
-static constexpr double LAUNCH_ALIGN_X     = 2.40;  // 从据点出发到 x 达到此值之前生效
-static constexpr double LAUNCH_ALIGN_ANGLE = 0.18;  // 朝赛道中央额外偏转的角度(rad，约 10°)
+// ★ 出据点起步偏置：让车头朝赛道中央多偏一点，提前看清第一排中间的锥桶。
+//   蓝卡 0.18rad / 2.40m 实测正常；红卡同一设置会贴着中心线走、
+//   在 x≈3.4 撞到中间一排的中间锥，故红卡用更大的角度和更长的距离。
+static constexpr double LAUNCH_ALIGN_X_BLUE = 2.40;  // 蓝卡生效距离(m)
+static constexpr double LAUNCH_ALIGN_X_RED  = 3.60;  // 红卡生效距离(m)
+static constexpr double LAUNCH_ALIGN_ANGLE_BLUE = 0.18;  // 蓝卡偏转角(rad，约 10°)
+static constexpr double LAUNCH_ALIGN_ANGLE_RED  = 0.30;  // 红卡偏转角(rad，约 17°)
 
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
@@ -908,8 +912,10 @@ private:
         //    让相机能提前看清第一排中间的锥桶（实测第一排中间锥识别不到）。
         //    蓝卡从 +y 侧出发 -> 往 -y 偏；红卡镜像。
         double launch_delta = 0.0;
-        if (x_ < LAUNCH_ALIGN_X) {
-            launch_delta = (card_color_ == "blue") ? -LAUNCH_ALIGN_ANGLE : LAUNCH_ALIGN_ANGLE;
+        if (card_color_ == "blue") {
+            if (x_ < LAUNCH_ALIGN_X_BLUE) launch_delta = -LAUNCH_ALIGN_ANGLE_BLUE;
+        } else {
+            if (x_ < LAUNCH_ALIGN_X_RED)  launch_delta =  LAUNCH_ALIGN_ANGLE_RED;
         }
         const double yaw_err_cmd = wrapPi(yaw_err + launch_delta);
 
