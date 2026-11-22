@@ -141,7 +141,8 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 // ★ 红卡遇到蓝锥时避让更狠（蓝卡不受影响）
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
-static constexpr double RED_BLUE_CONE_RATE_GAIN = 1.80;  // 红卡见蓝锥时速率倍率
+static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.30;  // 红卡见蓝锥时速率倍率（1.80->2.30）
+static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 1.50;  // 蓝卡见蓝锥时速率倍率（新增，保守起步）
 // ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
 static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
@@ -954,9 +955,11 @@ private:
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
             double area  = avoid_red ? avoid_red->area : avoid_blue->area;
             double max_a = avoid_red ? cfg_.red_cone_max_area : cfg_.blue_cone_max_area;
-            // ★ 红卡识别到蓝锥：起转速率放大，让得更快更狠（蓝卡保持原值）
+            // ★ 识别到蓝锥：起转速率放大，让得更快（红卡 2.30、蓝卡 1.50）
             double rate = AVOID_YAW_RATE;
-            if (card_color_ == "red" && avoid_blue != nullptr) rate *= RED_BLUE_CONE_RATE_GAIN;
+            if (avoid_blue != nullptr) {
+                rate *= (card_color_ == "red") ? RED_BLUE_CONE_RATE_GAIN : BLUE_BLUE_CONE_RATE_GAIN;
+            }
             if (x_ > MIDROW_X0 && x_ < MIDROW_X1) rate *= MIDROW_RATE_GAIN;   // 中间排区域反应更快
             if (area > max_a * 0.6) avoid_yaw_ = off_dir * AVOID_YAW_MAX;
             avoid_yaw_ += off_dir * rate;
