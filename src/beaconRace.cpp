@@ -141,8 +141,8 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 // ★ 红卡遇到蓝锥时避让更狠（蓝卡不受影响）
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
-static constexpr double RED_BLUE_CONE_RATE_GAIN  = 3.30;  // 红卡见蓝锥时速率倍率（2.80->3.30）
-static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 3.00;  // 蓝卡见蓝锥时速率倍率（2.30->3.00）
+static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.80;  // 红卡见蓝锥时速率倍率（2.30->2.80）
+static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 2.30;  // 蓝卡见蓝锥时速率倍率（1.50->2.30）
 // ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
 static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
@@ -154,8 +154,8 @@ static constexpr double MID_X0 = 1.60;  // 区间起点 x
 static constexpr double MID_X1 = 5.00;  // 区间终点 x
 static constexpr double MID_VX_GAIN = 1.30;  // 该区间丢线速度倍率（0.48 -> 0.624）
 static constexpr double AVOID_YAW_RECOVER= 0.040; // 无障碍时每帧回正步长（×1.63^2：配套）
-static constexpr double CORRIDOR_HALF_W  = 0.40;  // 允许偏离 base→goal 直线的横向半宽(米)，0.55->0.40：更早开始纠正
-static constexpr double CORRIDOR_GAIN    = 2.4;   // 超出走廊后的回归角速度增益（1.8->2.4：拉回更硬）
+static constexpr double CORRIDOR_HALF_W  = 0.55;  // 允许偏离 base→goal 直线的横向半宽(米)
+static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角速度增益（1.2->1.8：高速下更早拉回）
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
