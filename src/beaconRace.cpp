@@ -113,6 +113,10 @@ static constexpr double ENTRY_ALIGN_DIST  = 1.80;  // 距终点多远开始混�
 static constexpr double ENTRY_ALIGN_W     = 0.85;  // 航向收敛的最大权重(0~1)，原 0.75
 static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航向的最长时间(s)，原 4.0
 
+// ★ 终点入口的两个安全门（2026-11-22 冲出场地事故后新增）
+static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值就禁用入口摆平，继续指向目标
+static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离以上立即停车
+
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
 static constexpr double AVOID_YAW_MAX    = 0.65;  // ★ 避让时航向最大偏置(rad, 约37°)，有界，防止绕圈
@@ -857,6 +861,18 @@ private:
         double dx = goal_x_ - x_, dy = goal_y_ - y_;
         double dist = std::hypot(dx, dy);
         double yaw_to_x = wrapPi(0.0 - yaw_);   // ★ 车头对准 +x 的误差（营地入口方向）
+        // ★ 过冲保护：已经越过目标点 GOAL_OVERSHOOT_TOL 以上就立即停车。
+        //    2026-11-22 实测：车在 (6.890,-1.055) 距目标仅 0.155m（容差 0.14，差 1.5cm 没进圈），
+        //    入口对齐把 77.7% 航向权重拉向 +x，车头被摆平后一路直冲到 x=9.245 冲出场地。
+        //    这里兜住这种情况：宁可停在原地（位置通常仍在判分范围内），也不要继续往外冲。
+        if (dx < -GOAL_OVERSHOOT_TOL) {
+            sendStop();
+            erro_ = 0;
+            goal_aligning_ = false;
+            std::cout << "\nOVERSHOOT 越过目标 (x=" << x_ << " goal=" << goal_x_
+                      << ") 立即停车\n";
+            return true;
+        }
         // ★ 到点判定：位置进圈 + 车头对准 +x 才算完成；否则原地转正（有超时兜底）
         if (dist < cfg_.goal_pos_tol) {
             if (std::abs(yaw_to_x) < cfg_.goal_yaw_tol) {
@@ -916,8 +932,13 @@ private:
         avoid_yaw_ = clampd(avoid_yaw_, -AVOID_YAW_MAX, AVOID_YAW_MAX);
         const double avoid_wz = clampd(avoid_yaw_ * 2.0, -cfg_.vel_z_max, cfg_.vel_z_max);
         if (dist < cfg_.near_goal_dist) {
-            // ★ 入口收敛：越接近终点，越把航向往 +x 拉，形成贴图那样的“平着进营地”
-            double k = clampd(1.0 - dist / ENTRY_ALIGN_DIST, 0.0, 1.0) * ENTRY_ALIGN_W;
+            // ★ 入口收敛：越接近终点，越把航向往 +x 拉，形成贴图那样的“平着进营地”。
+            //   但只在横向已经基本对齐时启用——横向还差得远就摆平车头，会让车
+            //   沿 +x 直冲、永远追不上 y（2026-11-22 实测冲出场地到 x=9.245 的根因）。
+            double k = 0.0;
+            if (std::abs(dy) < ENTRY_ALIGN_MAX_DY) {
+                k = clampd(1.0 - dist / ENTRY_ALIGN_DIST, 0.0, 1.0) * ENTRY_ALIGN_W;
+            }
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
             double vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);   // 爬行下限 ×1.5（再乘 1.5）
             send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
