@@ -105,7 +105,7 @@ static constexpr double SPIN_YAW = 0.6;
 static constexpr double LOST_YAW = 1.0;   // 0.7->1.0：航向误差 40~57° 时改为「边走边转」，减少原地打转
 static constexpr double NEAR_VX_MAX = 0.27;   // ×1.5（再乘 1.5，原 0.18）：近终点段限速
 static constexpr double NEAR_VX_P = 1.125;    // ×1.5（再乘 1.5，原 0.75）：近终点距离比例系数
-static constexpr double LOST_VX = 0.370;      // ×1.63：丢线兜底速度（实测丢线占比最高，是耗时主因）
+static constexpr double LOST_VX = 0.480;      // ×1.3：丢线兜底速度
 
 // ★ 终点入口收敛（按场地图：营地入口正对赛道，车应平着沿 +x 进入）
 //   速度再快 1.5 倍 → 收敛窗口与摆正时间同比例放大，否则会擦过目标点
@@ -118,13 +118,13 @@ static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值�
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离以上立即停车
 
 // ★ 接近段速度分区 / 出据点加速
-static constexpr double GOAL_SLOW_DIST   = 1.00;  // 距目标此距离内沿用原减速曲线（营地内速度不变）
-static constexpr double GOAL_APPROACH_VX = 0.55;  // 接近段(大于1.00m)速度，横向已对齐时使用
+static constexpr double GOAL_SLOW_DIST   = 1.40;  // 距目标此距离内沿用原减速曲线（1.00->1.40：速度更快，提前刹车防冲过）
+static constexpr double GOAL_APPROACH_VX = 0.80;  // 接近段速度，横向已对齐时使用（0.55->0.80）
 static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
-static constexpr double DEPART_VX  = 0.50;  // 该段速度下限(m/s)
+static constexpr double DEPART_VX  = 0.65;  // 该段速度下限(m/s，×1.3)
 
 // ★ 出据点起步偏置：让车头朝赛道中央多偏一点，提前看清第一排中间的锥桶。
 //   蓝卡 0.18rad / 2.40m 实测正常；红卡同一设置会贴着中心线走、
@@ -137,7 +137,7 @@ static constexpr double LAUNCH_ALIGN_ANGLE_RED  = 0.22;  // 红卡偏转角(rad�
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
 static constexpr double AVOID_YAW_MAX    = 0.65;  // ★ 避让时航向最大偏置(rad, 约37°)，有界，防止绕圈
-static constexpr double AVOID_YAW_RATE   = 0.080; // 每帧向偏置角靠近的步长（×1.63^2：随速度平方缩放）
+static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的步长（×1.3^2：随速度平方缩放）
 // ★ 红卡遇到蓝锥时避让更狠（蓝卡不受影响）
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
@@ -846,7 +846,7 @@ private:
         if (dist > cfg_.goal_pos_tol) {
             double vx = 0, wz = clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max);
             if (std::abs(yaw_err) <= SPIN_YAW)
-                vx = clampd(cfg_.pos_p * dist, 0.180, cfg_.vel_x_odom);   // 爬行下限 ×1.63（去据点段）
+                vx = clampd(cfg_.pos_p * dist, 0.234, cfg_.vel_x_odom);   // 爬行下限 ×1.3（去据点段）
             send(vx, wz);
             erro_ = yaw_err;
             return false;
@@ -1002,14 +1002,14 @@ private:
             double vis_err = track->mid_x - CENTER_X;
             double wz = -vis_err * cfg_.vis_wz_gain + cfg_.odom_blend * cfg_.yaw_p * yaw_err_cmd
                       + corridor_wz + avoid_wz;
-            double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.44) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.63
+            double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.57) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.3
             if (!cone_here && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
         }
         double vx = std::abs(yaw_err_cmd) > LOST_YAW ? 0.0 : LOST_VX;
-        if (cone_here) vx = std::min(vx, 0.29);   // 丢线遇锥限速 ×1.63
+        if (cone_here) vx = std::min(vx, 0.38);   // 丢线遇锥限速 ×1.3
         if (!cone_here && vx > 0.0 && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
         send(vx, clampd(cfg_.yaw_p * yaw_err_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
         erro_ = yaw_err_cmd;
