@@ -105,7 +105,7 @@ static constexpr double SPIN_YAW = 0.6;
 static constexpr double LOST_YAW = 0.7;
 static constexpr double NEAR_VX_MAX = 0.27;   // ×1.5（再乘 1.5，原 0.18）：近终点段限速
 static constexpr double NEAR_VX_P = 1.125;    // ×1.5（再乘 1.5，原 0.75）：近终点距离比例系数
-static constexpr double LOST_VX = 0.450;      // ×2：丢线兜底速度（终点区不受影响）
+static constexpr double LOST_VX = 0.300;      // ×1.333：丢线兜底速度（0.90/0.675 缩放）
 
 // ★ 终点入口收敛（按场地图：营地入口正对赛道，车应平着沿 +x 进入）
 //   速度再快 1.5 倍 → 收敛窗口与摆正时间同比例放大，否则会擦过目标点
@@ -116,8 +116,8 @@ static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航�
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
 static constexpr double AVOID_YAW_MAX    = 0.65;  // ★ 避让时航向最大偏置(rad, 约37°)，有界，防止绕圈
-static constexpr double AVOID_YAW_RATE   = 0.120; // 每帧向偏置角靠近的步长（×4：补偿速度翻倍）
-static constexpr double AVOID_YAW_RECOVER= 0.060; // 无障碍时每帧回正步长（×4：配套，防斜行）
+static constexpr double AVOID_YAW_RATE   = 0.053; // 每帧向偏置角靠近的步长（×1.778：随速度平方缩放）
+static constexpr double AVOID_YAW_RECOVER= 0.027; // 无障碍时每帧回正步长（×1.778：配套）
 static constexpr double CORRIDOR_HALF_W  = 0.55;  // 允许偏离 base→goal 直线的横向半宽(米)
 static constexpr double CORRIDOR_GAIN    = 1.2;   // 超出走廊后的回归角速度增益
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
@@ -817,7 +817,7 @@ private:
         if (dist > cfg_.goal_pos_tol) {
             double vx = 0, wz = clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max);
             if (std::abs(yaw_err) <= SPIN_YAW)
-                vx = clampd(cfg_.pos_p * dist, 0.225, cfg_.vel_x_odom);   // 爬行下限 ×2（去据点段）
+                vx = clampd(cfg_.pos_p * dist, 0.150, cfg_.vel_x_odom);   // 爬行下限 ×1.333（去据点段）
             send(vx, wz);
             erro_ = yaw_err;
             return false;
@@ -928,13 +928,13 @@ private:
             double vis_err = track->mid_x - CENTER_X;
             double wz = -vis_err * cfg_.vis_wz_gain + cfg_.odom_blend * cfg_.yaw_p * yaw_err
                       + corridor_wz + avoid_wz;
-            double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.54) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×2
+            double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.36) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.333
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
         }
         double vx = std::abs(yaw_err) > LOST_YAW ? 0.0 : LOST_VX;
-        if (cone_here) vx = std::min(vx, 0.36);   // 丢线遇锥限速 ×2
+        if (cone_here) vx = std::min(vx, 0.24);   // 丢线遇锥限速 ×1.333
         send(vx, clampd(cfg_.yaw_p * yaw_err + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
         erro_ = yaw_err;
         return false;
