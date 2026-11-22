@@ -1,0 +1,12 @@
+run      : 2026-11-22_191632_blue_DONE_64s
+saved    : 2026-11-22 19:16:34
+source   : root@192.168.1.3:/home/root/run_logs/br_run.log
+binary   : md5 169ee82c6c1f03ef9f711f5b417c0e19
+card     : blue
+result   : DONE
+seconds  : 64
+nav_goal : 22 lines, 3 in-place spins
+max_vx   : 0.968209
+final    : DONE card=blue pose=(6.83543,-0.927624) yaw=2.26846deg vx=0 wz=0 err=0 odom=ok 
+error    : 0.070 m
+note     : watcher run in report D:\穿越火线\run_report.log
