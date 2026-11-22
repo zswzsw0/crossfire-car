@@ -2,7 +2,7 @@
 #
 # It holds two long-lived SSH "tail -F" streams (one on the car, one on the VM viewer)
 # and turns them into an event timeline:
-#   board  : /tmp/br_run.log        (state machine: WAIT_CARD / NAV_GOAL / DONE + pose)
+#   board  : /home/root/run_logs/br_run.log        (state machine: WAIT_CARD / NAV_GOAL / DONE + pose)
 #   viewer : /tmp/viewer_status.log (per-second stats the viewer computes from the
 #                                    frames it already decoded -- no extra capture)
 #
@@ -60,7 +60,7 @@ function Read-New([string]$path, [ref]$offset) {
 # ---------- start the two streams ----------
 "# watch_run_all started $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File $report -Encoding UTF8
 Emit 'START' "streams: board=$Board  viewer=$Vm"
-$pBoard = Start-Tail $Board '/tmp/br_run.log' $boardLog
+$pBoard = Start-Tail $Board '/home/root/run_logs/br_run.log' $boardLog
 $pView = Start-Tail $Vm '/tmp/viewer_status.log' $viewLog
 Start-Sleep -Seconds 2
 

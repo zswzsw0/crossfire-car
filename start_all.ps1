@@ -51,7 +51,7 @@ for ($i = 0; $i -lt 40; $i++) {
     if (Test-NetConnection $Board -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue) { $ok = $true; break }
     Start-Sleep -Milliseconds 250
 }
-if (-not $ok) { Say "port $Port never opened -- check /tmp/br_run.log on the board"; exit 1 }
+if (-not $ok) { Say "port $Port never opened -- check /home/root/run_logs/br_run.log on the board"; exit 1 }
 Say "stream port $Port is listening"
 
 # 5) open the viewer

@@ -1,5 +1,5 @@
 #!/bin/sh
-L=/tmp/br_run.log
+L=/home/root/run_logs/br_run.log
 echo "=== vx 分布 ==="
 grep '^NAV_GOAL' $L | grep -o 'vx=[-0-9.]*' | cut -d= -f2 | sort -n | uniq -c
 echo "=== |wz| 分布（前 6）==="

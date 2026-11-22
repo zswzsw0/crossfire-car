@@ -1,5 +1,5 @@
 #!/bin/sh
-L=/tmp/br_run.log
+L=/home/root/run_logs/br_run.log
 echo "=== 日志规模 ==="
 wc -l < $L; wc -c < $L
 echo "=== 状态迁移（首次出现）==="

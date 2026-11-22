@@ -1,6 +1,6 @@
 #!/bin/sh
 # 跑一轮时盯日志：等 DONE 或超时，过程中每 10 秒报一次状态
-LOG=/tmp/br_run.log
+LOG=/home/root/run_logs/br_run.log
 MAX=${1:-150}
 i=0
 last=""

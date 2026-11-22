@@ -1,0 +1,6 @@
+# 运行日志与配置快照按原始字节保存，禁止 git 做换行/编码转换
+# （车上是 UTF-8 + LF；若被转成 CRLF 或 ANSI，中文会乱）
+run_logs/** -text
+run_logs/*.log -text
+run_logs/*.cfg -text
+run_logs/*.meta.txt -text

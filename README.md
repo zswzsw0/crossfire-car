@@ -57,12 +57,17 @@ sh /home/mark/vm_watch.sh
 
 ## 运行日志存档（重要）
 
-**车上的 `/tmp/br_run.log` 是内存文件系统，重启/断电即失，且每次启动会被 `>` 清空。**
-所以每次实测结束都必须把日志拉回 PC 存档。
+**日志写在小车的持久目录 `/home/root/run_logs/br_run.log`**（rootfs，掉电不丢），
+每次 `br_ctl.sh start` 会把上一轮自动转存为 `run_<时间戳>.log`，只保留最近 20 份。
+
+> 早期版本写在 `/tmp/br_run.log`，实测中发现 **`/tmp` 会被 systemd 清理**（运行中的日志几分钟就不见了），
+> 所以改用持久目录。`/tmp` 是内存盘，重启即失，**不能放运行日志**。
+
+PC 端存档由两个脚本负责：
 
 | 文件 | 作用 |
 |---|---|
-| `save_run_log.ps1` | 手动存档：从车上拉 `/tmp/br_run.log` + 当时的 `beacon_race.cfg`，生成 `.log` / `.cfg` / `.meta.txt` 三件套，并提交 git |
+| `save_run_log.ps1` | 拉取车上的 `run_logs/br_run.log` + 当时的 `beacon_race.cfg`，生成 `.log` / `.cfg` / `.meta.txt` 三件套，并提交 git |
 | `watch_run_all.ps1` | 实测监看脚本，**结束时自动调用 `save_run_log.ps1`**，无需额外操作 |
 
 ```powershell
@@ -75,6 +80,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\save_run_log.ps1 -Card blu
 
 `.meta.txt` 里记录：二进制 md5、卡色、结果、耗时、NAV_GOAL 行数、原地空转次数、最大 vx、
 最终位姿、算好的终点误差、以及本轮备注。
+
+日志与配置快照由 `.gitattributes` 标记为 `-text`，git 不做换行/编码转换，保证与车上字节一致。
 
 ## 复位基线（成功方案）
 

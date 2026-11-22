@@ -7,6 +7,9 @@
 #   cam --force      杀掉所有占用 /dev/video* 的进程
 cd /home/root || exit 1
 
+# 运行日志放持久目录：/tmp 是内存盘，会被 systemd 清理，重启也会丢
+LOG=/home/root/run_logs/br_run.log
+
 holders() {   # 列出占用 /dev/video* 的 PID 和设备
   n=0
   for fd in /proc/[0-9]*/fd/*; do
@@ -43,7 +46,14 @@ case "$1" in
     pkill -f "cam_preview_loop.sh" 2>/dev/null
     pkill -f "ffmpeg.*tcp://0.0.0.0:9999" 2>/dev/null
     sleep 2
-    setsid sh -c "sleep 86400 | stdbuf -oL ./beaconRace $MODE > /tmp/br_run.log 2>&1" < /dev/null > /dev/null 2>&1 &
+    # 日志写到持久目录（/tmp 是内存盘，会被 systemd 清掉，重启也没了）
+    mkdir -p /home/root/run_logs
+    if [ -s "$LOG" ]; then
+        mv -f "$LOG" "/home/root/run_logs/run_$(date +%Y%m%d_%H%M%S).log" 2>/dev/null
+    fi
+    # 只保留最近 20 份，避免占满 rootfs
+    ls -t /home/root/run_logs/run_*.log 2>/dev/null | tail -n +21 | while read f; do rm -f "$f"; done
+    setsid sh -c "sleep 86400 | stdbuf -oL ./beaconRace $MODE > $LOG 2>&1" < /dev/null > /dev/null 2>&1 &
     sleep 6
     echo "=== PROC ==="
     ps -A 2>/dev/null | grep beaconRace | grep -v grep || echo "  (not running)"
@@ -51,8 +61,8 @@ case "$1" in
     netstat -ltn 2>/dev/null | grep 9999 || echo "  9999 not listening"
     echo "=== CAMERA HOLDERS ==="
     holders
-    echo "=== LOG (tail) ==="
-    tail -8 /tmp/br_run.log
+    echo "=== LOG ($LOG) ==="
+    tail -8 "$LOG"
     ;;
   stop)
     pkill -x beaconRace 2>/dev/null && echo "beaconRace stopped (TERM)" || echo "beaconRace not running"

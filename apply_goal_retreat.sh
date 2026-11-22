@@ -29,4 +29,4 @@ md5sum beaconRace
 echo "=== 6. 启动 --no-drive 验证 ==="
 sh /home/root/br_ctl.sh start 2>&1 | grep -E 'PROC|beaconRace|CAM'
 echo "--- 启动日志 ---"
-head -9 /tmp/br_run.log | tail -3
+head -9 /home/root/run_logs/br_run.log | tail -3

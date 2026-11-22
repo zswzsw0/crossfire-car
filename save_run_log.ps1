@@ -4,7 +4,7 @@
 #   ... -Card blue -Result DONE -Seconds 18 -Note "goal 6.90 / tol 0.10"
 #
 # What it does:
-#   run_logs/<timestamp>_<card>_<result>[_<secs>s].log   raw /tmp/br_run.log from the car
+#   run_logs/<timestamp>_<card>_<result>[_<secs>s].log   raw /home/root/run_logs/br_run.log from the car
 #   run_logs/<same>.cfg                                 the exact config used
 #   run_logs/<same>.meta.txt                            md5 + summary + note
 #   then commits run_logs/ so the archive does not rot as untracked files.
@@ -33,8 +33,10 @@ function Ssh([string]$cmd) {
 }
 
 # ---- reachability first: never hang the caller on an offline car ----
-$reach = Test-NetConnection ($BoardHost -replace '^.*@', '') -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue
-if (-not $reach) {
+# Use a real ssh probe instead of Test-NetConnection: the latter can report
+# false negatives (and is slow) when the interface is a hotspot client.
+$probe = & $SSH -o BatchMode=yes -o ConnectTimeout=6 $BoardHost 'echo OK' 2>&1
+if ($LASTEXITCODE -ne 0 -or ("$probe" -notmatch 'OK')) {
     Say "car unreachable ($BoardHost) - log NOT saved"
     exit 1
 }
@@ -50,9 +52,9 @@ $metaPath = Join-Path $Dir ($name + '.meta.txt')
 
 # ---- pull the log and the config that produced it ----
 Say "pulling log from $BoardHost ..."
-& $SCP -O -q -o BatchMode=yes -o ConnectTimeout=8 "${BoardHost}:/tmp/br_run.log" $logPath
+& $SCP -O -q -o BatchMode=yes -o ConnectTimeout=8 "${BoardHost}:/home/root/run_logs/br_run.log" $logPath
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $logPath)) {
-    Say "scp of /tmp/br_run.log failed - nothing saved"
+    Say "scp of /home/root/run_logs/br_run.log failed - nothing saved"
     exit 1
 }
 & $SCP -O -q -o BatchMode=yes -o ConnectTimeout=8 "${BoardHost}:/home/root/beacon_race.cfg" $cfgPath 2>$null
@@ -88,7 +90,7 @@ if ($final -and (Test-Path $cfgPath)) {
 $meta = @(
     "run      : $name",
     "saved    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
-    "source   : ${BoardHost}:/tmp/br_run.log",
+    "source   : ${BoardHost}:/home/root/run_logs/br_run.log",
     "binary   : md5 $md5",
     "card     : $Card",
     "result   : $Result",
@@ -106,11 +108,21 @@ if ($err) { Say ("goal error: {0};  final: {1}" -f $err, $final) }
 
 if (-not $NoCommit) {
     Push-Location $Repo
+    # git writes harmless warnings (e.g. CRLF) to stderr; PowerShell would turn
+    # those into terminating errors under $ErrorActionPreference = 'Stop'.
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try {
-        & git add run_logs 2>&1 | Out-Null
+        & git add -- run_logs *> $null
         $msg = "运行日志存档 $name`n`ncard=$Card result=$Result seconds=$Seconds error=$err`n$Note"
-        & git commit -q -m $msg 2>&1 | Out-Null
-        if ($LASTEXITCODE -eq 0) { Say 'committed to git' } else { Say 'nothing new to commit' }
-    } finally { Pop-Location }
+        & git commit -q -m $msg *> $null
+        $code = $LASTEXITCODE
+        if ($code -eq 0) { Say 'committed to git' } else { Say 'nothing new to commit (or git busy)' }
+    } catch {
+        Say ("git step failed: " + $_.Exception.Message)
+    } finally {
+        $ErrorActionPreference = $prevEap
+        Pop-Location
+    }
 }
 exit 0

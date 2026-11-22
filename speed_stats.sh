@@ -1,6 +1,6 @@
 #!/bin/sh
 # 从运行日志里统计实际速度分布
-L=/tmp/br_run.log
+L=/home/root/run_logs/br_run.log
 echo "=== 配置里的速度参数 ==="
 grep -E '^(vel_x_odom|vel_x_vision|vel_z_max|yaw_p|pos_p|vis_wz_gain|odom_blend|near_goal_dist|goal_pos_tol|base_wait_sec|red_avoid_wz|red_avoid_vx|blue_avoid_wz|blue_avoid_vx)=' /home/root/beacon_race.cfg
 

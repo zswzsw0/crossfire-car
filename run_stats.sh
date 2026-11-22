@@ -1,5 +1,5 @@
 #!/bin/sh
-L=/tmp/br_run.log
+L=/home/root/run_logs/br_run.log
 echo "=== 状态行数 ==="
 printf '  WAIT_CARD %s\n' "$(grep -c WAIT_CARD $L)"
 printf '  NAV_GOAL  %s\n' "$(grep -c NAV_GOAL $L)"
