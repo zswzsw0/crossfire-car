@@ -118,7 +118,9 @@ static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值�
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离以上立即停车
 
 // ★ 接近段速度分区 / 出据点加速
-static constexpr double GOAL_SLOW_DIST = 2.20;  // 撤回接近段提速：等于 near_goal_dist 时整段都走减速曲线（v1.6 精度 2cm，提速后恶化到 20cm）
+static constexpr double GOAL_SLOW_DIST   = 1.00;  // 距目标此距离内沿用原减速曲线（营地内速度不变）
+static constexpr double GOAL_APPROACH_VX = 0.55;  // 接近段(大于1.00m)速度，横向已对齐时使用
+static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX，先收敛再进营地
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
@@ -977,13 +979,14 @@ private:
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
             double vx;
             if (dist > GOAL_SLOW_DIST) {
-                if (track) {
-                    vx = cone_here ? std::min(cfg_.vel_x_vision, 0.44) : cfg_.vel_x_vision;
-                } else {
-                    vx = std::abs(yaw_err_cmd) > LOST_YAW ? 0.0 : LOST_VX;
-                    if (cone_here) vx = std::min(vx, 0.29);
-                }
+                // 接近段：横向已对齐才提速，否则先按 NEAR_VX_MAX 收敛，
+                // 避免高速冲进容差圈、停在圈的上沿（曾导致横向偏 20cm）。
+                vx = GOAL_APPROACH_VX;
+                if (std::abs(dy) > GOAL_LAT_GATE) vx = std::min(vx, NEAR_VX_MAX);
+                if (cone_here) vx = std::min(vx, 0.29);
+                if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
             } else {
+                // 营地内：完全保持原减速曲线
                 vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);
             }
             send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
