@@ -115,10 +115,10 @@ static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航�
 
 // ★ 终点入口的两个安全门（2026-11-22 冲出场地事故后新增）
 static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值就禁用入口摆平，继续指向目标
-static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离以上立即停车
+static constexpr double GOAL_OVERSHOOT_TOL  = 0.06;  // 越过目标点此距离以上立即停车（0.10->0.06：更早兜住，防冲过头）
 
 // ★ 接近段速度分区 / 出据点加速
-static constexpr double GOAL_SLOW_DIST   = 1.40;  // 距目标此距离内沿用原减速曲线（1.00->1.40：速度更快，提前刹车防冲过）
+static constexpr double GOAL_SLOW_DIST   = 1.80;  // 距目标此距离内进入减速曲线（1.40->1.80：提前 0.4m 刹车，防单次冲过头）
 static constexpr double GOAL_APPROACH_VX = 0.80;  // 接近段速度，横向已对齐时使用（0.55->0.80）
 static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
