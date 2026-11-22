@@ -113,6 +113,10 @@ static constexpr double ENTRY_ALIGN_DIST  = 1.80;  // 距终点多远开始混�
 static constexpr double ENTRY_ALIGN_W     = 0.85;  // 航向收敛的最大权重(0~1)，原 0.75
 static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航向的最长时间(s)，原 4.0
 
+// ★ 终点纵向防过冲：横向偏差越大，纵向速度压得越低
+static constexpr double LAT_GATE_SCALE = 0.60;  // |dy| 达到 0.60 m 时速度系数压到 LAT_GATE_MIN
+static constexpr double LAT_GATE_MIN   = 0.25;  // 速度系数下限（不彻底停，仍能爬行修正）
+
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
 static constexpr double AVOID_YAW_MAX    = 0.65;  // ★ 避让时航向最大偏置(rad, 约37°)，有界，防止绕圈
@@ -857,8 +861,14 @@ private:
         double dx = goal_x_ - x_, dy = goal_y_ - y_;
         double dist = std::hypot(dx, dy);
         double yaw_to_x = wrapPi(0.0 - yaw_);   // ★ 车头对准 +x 的误差（营地入口方向）
-        // ★ 到点判定：位置进圈 + 车头对准 +x 才算完成；否则原地转正（有超时兜底）
-        if (dist < cfg_.goal_pos_tol) {
+        // ★ 到点判定：改成「矩形停车格」——各轴分别进圈，而不是看欧氏距离。
+        //    原因：原来是圆形判据，车斜着接近时会先碰到圆的右边界，
+        //    此时 x 已经越过目标点、y 还差几厘米，也算「到点」，于是车头压线。
+        //    分轴判据保证 |goal_x - x| 与 |goal_y - y| 各自 < goal_pos_tol，
+        //    x 方向上数学上不可能超出 goal_x + goal_pos_tol。
+        const bool pos_ok = (std::abs(dx) < cfg_.goal_pos_tol) &&
+                            (std::abs(dy) < cfg_.goal_pos_tol);
+        if (pos_ok) {
             if (std::abs(yaw_to_x) < cfg_.goal_yaw_tol) {
                 sendStop();
                 erro_ = 0;
@@ -919,7 +929,10 @@ private:
             // ★ 入口收敛：越接近终点，越把航向往 +x 拉，形成贴图那样的“平着进营地”
             double k = clampd(1.0 - dist / ENTRY_ALIGN_DIST, 0.0, 1.0) * ENTRY_ALIGN_W;
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
-            double vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);   // 爬行下限 ×1.5（再乘 1.5）
+            // ★ 横向未对齐就压纵向速度：斜着冲是 x 过冲的根源。
+            //    |dy| 越大，前进越慢，先把 y 拉回来再补 x。
+            double lat_gate = clampd(1.0 - std::abs(dy) / LAT_GATE_SCALE, LAT_GATE_MIN, 1.0);
+            double vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX) * lat_gate;
             send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = yaw_cmd;
             return false;
