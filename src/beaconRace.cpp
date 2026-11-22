@@ -117,6 +117,10 @@ static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航�
 static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值就禁用入口摆平，继续指向目标
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离以上立即停车
 
+// ★ 接近段速度分区 / 出据点加速
+static constexpr double GOAL_SLOW_DIST = 1.00;  // 距目标此距离内才进减速曲线，外面按直线速度
+static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
+
 // ★ 出据点起步偏置：让车头朝赛道中央多偏一点，提前看清第一排中间的锥桶。
 //   蓝卡 0.18rad / 2.40m 实测正常；红卡同一设置会贴着中心线走、
 //   在 x≈3.4 撞到中间一排的中间锥，故红卡用更大的角度和更长的距离。
@@ -840,7 +844,7 @@ private:
         }
         if (face_x) {
             yaw_err = wrapPi(0.0 - yaw_);
-            if (std::abs(yaw_err) > cfg_.goal_yaw_tol) {
+            if (std::abs(yaw_err) > BASE_FACE_TOL) {   // 放宽：到点后不必摆到精确 +x 就能出发
                 send(0, clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max));
                 erro_ = yaw_err;
                 return false;
@@ -966,7 +970,19 @@ private:
                 k = clampd(1.0 - dist / ENTRY_ALIGN_DIST, 0.0, 1.0) * ENTRY_ALIGN_W;
             }
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
-            double vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);   // 爬行下限 ×1.5（再乘 1.5）
+            // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
+            //    以内才进入原来的减速曲线（终点区内速度保持不变）。
+            double vx;
+            if (dist > GOAL_SLOW_DIST) {
+                if (track) {
+                    vx = cone_here ? std::min(cfg_.vel_x_vision, 0.44) : cfg_.vel_x_vision;
+                } else {
+                    vx = std::abs(yaw_err_cmd) > LOST_YAW ? 0.0 : LOST_VX;
+                    if (cone_here) vx = std::min(vx, 0.29);
+                }
+            } else {
+                vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);
+            }
             send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = yaw_cmd;
             return false;
