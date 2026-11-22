@@ -130,9 +130,9 @@ static constexpr double DEPART_VX  = 0.50;  // 该段速度下限(m/s)
 //   蓝卡 0.18rad / 2.40m 实测正常；红卡同一设置会贴着中心线走、
 //   在 x≈3.4 撞到中间一排的中间锥，故红卡用更大的角度和更长的距离。
 static constexpr double LAUNCH_ALIGN_X_BLUE = 2.40;  // 蓝卡生效距离(m)
-static constexpr double LAUNCH_ALIGN_X_RED  = 3.60;  // 红卡生效距离(m)
+static constexpr double LAUNCH_ALIGN_X_RED  = 2.80;  // 红卡生效距离(m)（3.60->2.80：向蓝卡靠拢）
 static constexpr double LAUNCH_ALIGN_ANGLE_BLUE = 0.18;  // 蓝卡偏转角(rad，约 10°)
-static constexpr double LAUNCH_ALIGN_ANGLE_RED  = 0.30;  // 红卡偏转角(rad，约 17°)
+static constexpr double LAUNCH_ALIGN_ANGLE_RED  = 0.22;  // 红卡偏转角(rad，约 13°)（0.30->0.22：向蓝卡 0.18 靠拢，中间排避让已加强可补偿）
 
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
