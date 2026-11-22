@@ -118,7 +118,7 @@ static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值�
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离以上立即停车
 
 // ★ 接近段速度分区 / 出据点加速
-static constexpr double GOAL_SLOW_DIST = 1.00;  // 距目标此距离内才进减速曲线，外面按直线速度
+static constexpr double GOAL_SLOW_DIST = 2.20;  // 撤回接近段提速：等于 near_goal_dist 时整段都走减速曲线（v1.6 精度 2cm，提速后恶化到 20cm）
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 
 // ★ 出据点起步偏置：让车头朝赛道中央多偏一点，提前看清第一排中间的锥桶。
