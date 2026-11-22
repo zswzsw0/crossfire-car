@@ -120,7 +120,7 @@ static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离
 // ★ 接近段速度分区 / 出据点加速
 static constexpr double GOAL_SLOW_DIST   = 1.00;  // 距目标此距离内沿用原减速曲线（营地内速度不变）
 static constexpr double GOAL_APPROACH_VX = 0.55;  // 接近段(大于1.00m)速度，横向已对齐时使用
-static constexpr double GOAL_LAT_GATE    = 0.18;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.10->0.18：原阈值太严，接近段几乎从不放行 0.55）
+static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
@@ -142,6 +142,10 @@ static constexpr double AVOID_YAW_RATE   = 0.080; // 每帧向偏置角靠近的
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
 static constexpr double RED_BLUE_CONE_RATE_GAIN = 1.80;  // 红卡见蓝锥时速率倍率
+// ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
+static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
+static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
+static constexpr double MIDROW_RATE_GAIN = 1.30;  // 该区间避让速率倍率
 static constexpr double AVOID_YAW_RECOVER= 0.040; // 无障碍时每帧回正步长（×1.63^2：配套）
 static constexpr double CORRIDOR_HALF_W  = 0.55;  // 允许偏离 base→goal 直线的横向半宽(米)
 static constexpr double CORRIDOR_GAIN    = 1.2;   // 超出走廊后的回归角速度增益
@@ -953,6 +957,7 @@ private:
             // ★ 红卡识别到蓝锥：起转速率放大，让得更快更狠（蓝卡保持原值）
             double rate = AVOID_YAW_RATE;
             if (card_color_ == "red" && avoid_blue != nullptr) rate *= RED_BLUE_CONE_RATE_GAIN;
+            if (x_ > MIDROW_X0 && x_ < MIDROW_X1) rate *= MIDROW_RATE_GAIN;   // 中间排区域反应更快
             if (area > max_a * 0.6) avoid_yaw_ = off_dir * AVOID_YAW_MAX;
             avoid_yaw_ += off_dir * rate;
             ++avoid_frames_;
