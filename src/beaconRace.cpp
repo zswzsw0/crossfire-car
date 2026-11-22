@@ -121,6 +121,9 @@ static constexpr double GOAL_OVERSHOOT_TOL  = 0.06;  // 越过目标点此距离
 static constexpr double GOAL_SLOW_DIST   = 1.80;  // 距目标此距离内进入减速曲线（1.40->1.80：提前 0.4m 刹车，防单次冲过头）
 static constexpr double GOAL_APPROACH_VX = 0.80;  // 接近段速度，横向已对齐时使用（0.55->0.80）
 static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
+
+// ★ 红卡去据点更快（仅红卡，蓝卡保持 1.0）
+static constexpr double RED_BASE_APPROACH_GAIN = 1.40;  // 近距离比例增益与爬行下限的倍率
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
@@ -852,8 +855,11 @@ private:
         double yaw_err = wrapPi(bearing - yaw_);
         if (dist > cfg_.goal_pos_tol) {
             double vx = 0, wz = clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max);
-            if (std::abs(yaw_err) <= SPIN_YAW)
-                vx = clampd(cfg_.pos_p * dist, 0.234, cfg_.vel_x_odom);   // 爬行下限 ×1.3（去据点段）
+            if (std::abs(yaw_err) <= SPIN_YAW) {
+                // ★ 红卡去据点更快（蓝卡保持原值）
+                const double base_gain = (card_color_ == "red") ? RED_BASE_APPROACH_GAIN : 1.0;
+                vx = clampd(cfg_.pos_p * base_gain * dist, 0.234 * base_gain, cfg_.vel_x_odom);
+            }
             send(vx, wz);
             erro_ = yaw_err;
             return false;
