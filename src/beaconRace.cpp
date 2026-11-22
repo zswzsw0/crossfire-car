@@ -116,8 +116,8 @@ static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航�
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
 static constexpr double AVOID_YAW_MAX    = 0.65;  // ★ 避让时航向最大偏置(rad, 约37°)，有界，防止绕圈
-static constexpr double AVOID_YAW_RATE   = 0.150; // 每帧向偏置角靠近的步长（0.03→0.15：高速下 0.5s 满舵）
-static constexpr double AVOID_YAW_RECOVER= 0.050; // 无障碍时每帧回正步长（0.015→0.05：配套加快回正）
+static constexpr double AVOID_YAW_RATE   = 0.030; // 每帧向偏置角靠近的步长
+static constexpr double AVOID_YAW_RECOVER= 0.015; // 无障碍时每帧回正步长
 static constexpr double CORRIDOR_HALF_W  = 0.55;  // 允许偏离 base→goal 直线的横向半宽(米)
 static constexpr double CORRIDOR_GAIN    = 1.2;   // 超出走廊后的回归角速度增益
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
