@@ -92,6 +92,15 @@ Emit 'ARMED' 'waiting for the car to report WAIT_CARD and for the card to show u
 while (((Get-Date) - $t0).TotalSeconds -lt $MaxSeconds) {
     # ---- board lines ----
     foreach ($l in (Read-New $boardLog $offBoard)) {
+        # 板端 tail 可能先补发已有内容：见到启动横幅就把计时与状态全部重置，
+        # 否则会把上一轮/本轮的旧行当成本次进度（曾误报「2.5s 到终点」）。
+        if ($l -match 'beaconRace 启动') {
+            $t0 = Get-Date
+            $state = 'UNKNOWN'; $prevState = 'UNKNOWN'
+            $recognizedAt = $null; $doneAt = $null; $cardVisibleAt = $null
+            $lastPose = ''; $poseChanges = 0
+            Emit 'RESET' 'seen startup banner, timer restarted'
+        }
         if ($l -match '^(WAIT_CARD|NAV_GOAL|DONE|PARK|STOP)\b') {
             $state = $Matches[1]
             if ($state -ne $prevState) {
