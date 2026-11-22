@@ -141,12 +141,17 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 // ★ 红卡遇到蓝锥时避让更狠（蓝卡不受影响）
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
-static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.30;  // 红卡见蓝锥时速率倍率（1.80->2.30）
+static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.80;  // 红卡见蓝锥时速率倍率（2.30->2.80）
 static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 1.50;  // 蓝卡见蓝锥时速率倍率（新增，保守起步）
 // ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
 static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
 static constexpr double MIDROW_RATE_GAIN = 1.30;  // 该区间避让速率倍率
+// ★ 红卡中段提速：红卡航向误差常达 30~50°，丢线时只能走 LOST_VX，
+//   中段因此被拖慢。仅对红卡、仅在该区间把丢线速度提高（蓝卡不受影响）。
+static constexpr double RED_MID_X0 = 1.60;  // 区间起点 x
+static constexpr double RED_MID_X1 = 5.00;  // 区间终点 x
+static constexpr double RED_MID_VX_GAIN = 1.30;  // 该区间丢线速度倍率（0.48 -> 0.624）
 static constexpr double AVOID_YAW_RECOVER= 0.040; // 无障碍时每帧回正步长（×1.63^2：配套）
 static constexpr double CORRIDOR_HALF_W  = 0.55;  // 允许偏离 base→goal 直线的横向半宽(米)
 static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角速度增益（1.2->1.8：高速下更早拉回）
@@ -1011,6 +1016,9 @@ private:
             return false;
         }
         double vx = std::abs(yaw_err_cmd) > LOST_YAW ? 0.0 : LOST_VX;
+        // ★ 红卡中段：丢线速度提高，压缩中间直线段耗时（蓝卡不受影响）
+        if (vx > 0.0 && card_color_ == "red" && x_ > RED_MID_X0 && x_ < RED_MID_X1)
+            vx *= RED_MID_VX_GAIN;
         if (cone_here) vx = std::min(vx, 0.38);   // 丢线遇锥限速 ×1.3
         if (!cone_here && vx > 0.0 && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
         send(vx, clampd(cfg_.yaw_p * yaw_err_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
