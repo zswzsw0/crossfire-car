@@ -102,7 +102,7 @@ static constexpr double CONE_MAX_ASPECT = 3.5;
 //     LOST_VX     丢线时仍保持的前进速度
 //     车抖/画龙 → 减小 SPIN_YAW、LOST_YAW；反应迟钝 → 适当增大。
 static constexpr double SPIN_YAW = 0.6;
-static constexpr double LOST_YAW = 0.7;
+static constexpr double LOST_YAW = 1.0;   // 0.7->1.0：航向误差 40~57° 时改为「边走边转」，减少原地打转
 static constexpr double NEAR_VX_MAX = 0.27;   // ×1.5（再乘 1.5，原 0.18）：近终点段限速
 static constexpr double NEAR_VX_P = 1.125;    // ×1.5（再乘 1.5，原 0.75）：近终点距离比例系数
 static constexpr double LOST_VX = 0.370;      // ×1.63：丢线兜底速度（实测丢线占比最高，是耗时主因）
@@ -120,7 +120,7 @@ static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离
 // ★ 接近段速度分区 / 出据点加速
 static constexpr double GOAL_SLOW_DIST   = 1.00;  // 距目标此距离内沿用原减速曲线（营地内速度不变）
 static constexpr double GOAL_APPROACH_VX = 0.55;  // 接近段(大于1.00m)速度，横向已对齐时使用
-static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX，先收敛再进营地
+static constexpr double GOAL_LAT_GATE    = 0.18;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.10->0.18：原阈值太严，接近段几乎从不放行 0.55）
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
