@@ -984,9 +984,9 @@ private:
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
             double vx;
             if (dist > GOAL_SLOW_DIST) {
-                // 接近段：横向已对齐才提速，否则先按 NEAR_VX_MAX 收敛，
-                // 避免高速冲进容差圈、停在圈的上沿（曾导致横向偏 20cm）。
-                vx = GOAL_APPROACH_VX;
+                // 接近段：识别到黑点(有线)就按直线速度跑，丢线时用接近速度。
+                // 横向未对齐时仍按 NEAR_VX_MAX 收敛，避免高速冲进容差圈、停在圈的上沿。
+                vx = track ? cfg_.vel_x_vision : GOAL_APPROACH_VX;
                 if (std::abs(dy) > GOAL_LAT_GATE) vx = std::min(vx, NEAR_VX_MAX);
                 if (cone_here) vx = std::min(vx, 0.29);
                 if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
