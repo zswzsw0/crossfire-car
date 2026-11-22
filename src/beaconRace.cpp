@@ -120,6 +120,9 @@ static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离
 // ★ 接近段速度分区 / 出据点加速
 static constexpr double GOAL_SLOW_DIST = 2.20;  // 撤回接近段提速：等于 near_goal_dist 时整段都走减速曲线（v1.6 精度 2cm，提速后恶化到 20cm）
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
+// ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
+static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
+static constexpr double DEPART_VX  = 0.50;  // 该段速度下限(m/s)
 
 // ★ 出据点起步偏置：让车头朝赛道中央多偏一点，提前看清第一排中间的锥桶。
 //   蓝卡 0.18rad / 2.40m 实测正常；红卡同一设置会贴着中心线走、
@@ -992,12 +995,14 @@ private:
             double wz = -vis_err * cfg_.vis_wz_gain + cfg_.odom_blend * cfg_.yaw_p * yaw_err_cmd
                       + corridor_wz + avoid_wz;
             double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.44) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.63
+            if (!cone_here && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
         }
         double vx = std::abs(yaw_err_cmd) > LOST_YAW ? 0.0 : LOST_VX;
         if (cone_here) vx = std::min(vx, 0.29);   // 丢线遇锥限速 ×1.63
+        if (!cone_here && vx > 0.0 && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
         send(vx, clampd(cfg_.yaw_p * yaw_err_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
         erro_ = yaw_err_cmd;
         return false;
