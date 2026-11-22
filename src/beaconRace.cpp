@@ -103,7 +103,7 @@ static constexpr double CONE_MAX_ASPECT = 3.5;
 //     车抖/画龙 → 减小 SPIN_YAW、LOST_YAW；反应迟钝 → 适当增大。
 static constexpr double SPIN_YAW = 0.6;
 static constexpr double LOST_YAW = 1.0;   // 0.7->1.0：航向误差 40~57° 时改为「边走边转」，减少原地打转
-static constexpr double NEAR_VX_MAX = 0.27;   // ×1.5（再乘 1.5，原 0.18）：近终点段限速
+static constexpr double NEAR_VX_MAX = 0.43;   // 减速圈内速度上限（0.27->0.43：仅降到 0.43 即可，不必压到 0.27）
 static constexpr double NEAR_VX_P = 1.125;    // ×1.5（再乘 1.5，原 0.75）：近终点距离比例系数
 static constexpr double LOST_VX = 0.480;      // ×1.3：丢线兜底速度
 
@@ -984,9 +984,8 @@ private:
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
             double vx;
             if (dist > GOAL_SLOW_DIST) {
-                // 接近段：识别到黑点(有线)就按直线速度跑，丢线时用接近速度。
-                // 横向未对齐时仍按 NEAR_VX_MAX 收敛，避免高速冲进容差圈、停在圈的上沿。
-                vx = track ? cfg_.vel_x_vision : GOAL_APPROACH_VX;
+                // 接近段：按接近速度跑；横向未对齐时压到 NEAR_VX_MAX 先收敛。
+                vx = GOAL_APPROACH_VX;
                 if (std::abs(dy) > GOAL_LAT_GATE) vx = std::min(vx, NEAR_VX_MAX);
                 if (cone_here) vx = std::min(vx, 0.29);
                 if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
