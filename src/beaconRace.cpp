@@ -141,8 +141,8 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 // ★ 红卡遇到蓝锥时避让更狠（蓝卡不受影响）
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
-static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.80;  // 红卡见蓝锥时速率倍率（2.30->2.80）
-static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 2.30;  // 蓝卡见蓝锥时速率倍率（1.50->2.30）
+static constexpr double RED_BLUE_CONE_RATE_GAIN  = 3.30;  // 红卡见蓝锥时速率倍率（2.80->3.30）
+static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 3.00;  // 蓝卡见蓝锥时速率倍率（2.30->3.00）
 // ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
 static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
