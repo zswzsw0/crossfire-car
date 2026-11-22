@@ -117,6 +117,10 @@ static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航�
 static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值就禁用入口摆平，继续指向目标
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.10;  // 越过目标点此距离以上立即停车
 
+// ★ 出据点起步偏置：让车头朝赛道中央多偏一点，提前看清第一排中间的锥桶
+static constexpr double LAUNCH_ALIGN_X     = 2.40;  // 从据点出发到 x 达到此值之前生效
+static constexpr double LAUNCH_ALIGN_ANGLE = 0.18;  // 朝赛道中央额外偏转的角度(rad，约 10°)
+
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
 static constexpr double AVOID_YAW_MAX    = 0.65;  // ★ 避让时航向最大偏置(rad, 约37°)，有界，防止绕圈
@@ -900,6 +904,15 @@ private:
         goal_aligning_ = false;
         double yaw_err = wrapPi(std::atan2(dy, dx) - yaw_);
 
+        // ★ 出据点起步偏置：刚离开据点时把车头朝赛道中央多偏一点，
+        //    让相机能提前看清第一排中间的锥桶（实测第一排中间锥识别不到）。
+        //    蓝卡从 +y 侧出发 -> 往 -y 偏；红卡镜像。
+        double launch_delta = 0.0;
+        if (x_ < LAUNCH_ALIGN_X) {
+            launch_delta = (card_color_ == "blue") ? -LAUNCH_ALIGN_ANGLE : LAUNCH_ALIGN_ANGLE;
+        }
+        const double yaw_err_cmd = wrapPi(yaw_err + launch_delta);
+
         // ★ 走廊约束：相对 base→goal 直线的有符号横向偏差（>0 表示偏左）
         double ux = goal_x_ - base_x_, uy = goal_y_ - base_y_;
         double un = std::hypot(ux, uy);
@@ -947,17 +960,17 @@ private:
         }
         if (track) {
             double vis_err = track->mid_x - CENTER_X;
-            double wz = -vis_err * cfg_.vis_wz_gain + cfg_.odom_blend * cfg_.yaw_p * yaw_err
+            double wz = -vis_err * cfg_.vis_wz_gain + cfg_.odom_blend * cfg_.yaw_p * yaw_err_cmd
                       + corridor_wz + avoid_wz;
             double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.44) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.63
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
         }
-        double vx = std::abs(yaw_err) > LOST_YAW ? 0.0 : LOST_VX;
+        double vx = std::abs(yaw_err_cmd) > LOST_YAW ? 0.0 : LOST_VX;
         if (cone_here) vx = std::min(vx, 0.29);   // 丢线遇锥限速 ×1.63
-        send(vx, clampd(cfg_.yaw_p * yaw_err + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
-        erro_ = yaw_err;
+        send(vx, clampd(cfg_.yaw_p * yaw_err_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
+        erro_ = yaw_err_cmd;
         return false;
     }
 
