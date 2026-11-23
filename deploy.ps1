@@ -57,8 +57,19 @@ if ($Restore) {
     exit 0
 }
 
-# ---------------- 1. build on the VM ----------------
-Say "1/5 cross-compile on VM ($VmHost) ..."
+# ---------------- 1. upload source, then build on the VM ----------------
+# NOTE: the build reads the VM copy at <SerialDir>/beaconRace/beaconRace.cpp.
+# If you forget to upload, the build silently succeeds on the OLD source and the
+# produced binary is identical to the previous one. Always upload here.
+Say "1/5 upload source + cross-compile on VM ($VmHost) ..."
+$localSrc = Join-Path $PSScriptRoot 'src\beaconRace.cpp'
+if (Test-Path $localSrc) {
+    $r = ScpFile $localSrc ("{0}:{1}/beaconRace/beaconRace.cpp" -f $VmHost, $SerialDir)
+    if ($r.Code -ne 0) { Fail ("scp source to VM failed: " + $r.Out) }
+    Say ("    source uploaded: " + (Get-FileHash -Path $localSrc -Algorithm MD5).Hash.ToLower())
+} else {
+    Say "    (src\beaconRace.cpp not found locally, building VM copy as-is)"
+}
 $r = SshRun $VmHost "cd '$SerialDir' && sh build_la.sh > /tmp/br_build.log 2>&1 && tail -6 /tmp/br_build.log || { tail -30 /tmp/br_build.log; exit 1; }"
 Say $r.Out
 if ($r.Code -ne 0) { Fail 'build failed on VM' }
