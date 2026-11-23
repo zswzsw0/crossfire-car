@@ -189,6 +189,8 @@ static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏�
 //   实测外漂真正发生在 x=4.4~5.2，必须在漂起来之前就关掉避让。
 static constexpr bool   THIRD_ROW_NO_AVOID = false;  // false = 第三排照常识别并避让锥桶（2026-11-23 回退：关掉后路径内收到 -0.80，内收过头）
 static constexpr double THIRD_ROW_NOAVOID_X0 = 4.30;  // 关避让区间起点 x(m)，5.00 -> 4.30
+// ★ 第三排最外侧蓝锥的向内偏转增益：起转速率再乘这个倍数
+static constexpr double THIRD_ROW_INNER_GAIN = 2.0;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -1055,7 +1057,16 @@ private:
         //   擦到第三排最下侧蓝锥）；完全相加又会抵消避让（更早实测撞中间一列锥）。
         //   取一半：避让仍占优，同时保留一半回正压住外漂。仅蓝卡生效，红卡不变。
         if (cone_here && card_color_ == "blue") corridor_wz *= 0.5;
-        const double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
+        double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
+        // ★ 第三排最外侧蓝锥：改为向中线偏转，并加大幅度（2026-11-23）
+        //   默认蓝卡往 -y（外侧）让、红卡往 +y（外侧）让；第三排最外侧那个蓝锥就在外侧，
+        //   继续往外让等于朝锥转，所以这里反过来朝中线让，并把起转速率乘上增益。
+        if (third_row_seg && avoid_blue != nullptr) {
+            const double ref_x    = track ? track->mid_x : CENTER_X;
+            const bool   is_outer = (card_color_ == "blue") ? (avoid_blue->cx > ref_x)
+                                                            : (avoid_blue->cx < ref_x);
+            if (is_outer) off_dir = (card_color_ == "blue") ? 1.0 : -1.0;   // 朝中线
+        }
         if (cone_here) {
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
             double area  = avoid_red ? avoid_red->area : avoid_blue->area;
@@ -1066,6 +1077,13 @@ private:
                 rate *= (card_color_ == "red") ? RED_BLUE_CONE_RATE_GAIN : BLUE_BLUE_CONE_RATE_GAIN;
             }
             if (x_ > MIDROW_X0 && x_ < MIDROW_X1) rate *= MIDROW_RATE_GAIN;   // 中间排区域反应更快
+            // ★ 第三排最外侧蓝锥：往中线让的同时把起转速率放大（THIRD_ROW_INNER_GAIN）
+            if (third_row_seg && avoid_blue != nullptr) {
+                const double ref_x    = track ? track->mid_x : CENTER_X;
+                const bool   is_outer = (card_color_ == "blue") ? (avoid_blue->cx > ref_x)
+                                                                : (avoid_blue->cx < ref_x);
+                if (is_outer) rate *= THIRD_ROW_INNER_GAIN;
+            }
             if (area > max_a * 0.6) avoid_yaw_ = off_dir * AVOID_YAW_MAX;
             avoid_yaw_ += off_dir * rate;
             ++avoid_frames_;
