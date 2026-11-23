@@ -1018,6 +1018,9 @@ private:
                       + corridor_wz + avoid_wz;
             double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.57) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.3
             if (!cone_here && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
+            // ★ 巡线也要有航向保护：车头歪超过 LOST_YAW 就降速，避免「歪着全速冲」。
+            //   实测：航向 -47.5° 时仍走 0.570，一帧横移 0.80m，y 一路冲到 -1.624。
+            if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
