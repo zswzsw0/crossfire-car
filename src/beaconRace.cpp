@@ -171,8 +171,13 @@ static constexpr double MID_X0 = 1.60;  // 区间起点 x
 static constexpr double MID_X1 = 5.00;  // 区间终点 x
 static constexpr double MID_VX_GAIN = 1.30;  // 该区间丢线速度倍率（0.48 -> 0.624）
 static constexpr double AVOID_YAW_RECOVER= 0.040; // 无障碍时每帧回正步长（×1.63^2：配套）
-static constexpr double CORRIDOR_HALF_W  = 0.55;  // 允许偏离 base→goal 直线的横向半宽(米)
-static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角速度增益（1.2->1.8：高速下更早拉回）
+// ★ 走廊约束分卡（2026-11-23）：蓝卡收紧，红卡保持原值不动。
+//   蓝卡实测：x=5.5 时 y=-1.277，比「起点→终点」直线偏外 0.77m，撞了第三排下方蓝锥。
+//   原 0.55 半宽 + 1.8 增益只给出约 0.34rad/s 回正，压不住指向目标的 0.8rad/s。
+static constexpr double CORRIDOR_HALF_W_BLUE = 0.30;  // 蓝卡：允许偏离直线半宽(米)，0.55 -> 0.30
+static constexpr double CORRIDOR_GAIN_BLUE   = 2.6;   // 蓝卡：回归增益，1.8 -> 2.6
+static constexpr double CORRIDOR_HALF_W_RED  = 0.55;  // 红卡：保持原值，不动
+static constexpr double CORRIDOR_GAIN_RED    = 1.8;   // 红卡：保持原值，不动
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -1014,9 +1019,9 @@ private:
         ux /= un; uy /= un;
         double cross = -(x_ - base_x_) * uy + (y_ - base_y_) * ux;
         double corridor_wz = 0.0;
-        double over = std::abs(cross) - CORRIDOR_HALF_W;
+        double over = std::abs(cross) - ((card_color_ == "blue") ? CORRIDOR_HALF_W_BLUE : CORRIDOR_HALF_W_RED);
         if (over > 0)
-            corridor_wz = -std::copysign(CORRIDOR_GAIN * over, cross);
+            corridor_wz = -std::copysign(((card_color_ == "blue") ? CORRIDOR_GAIN_BLUE : CORRIDOR_GAIN_RED) * over, cross);
 
         // ★ 避让：方向由赛道路线决定（红卡→左，蓝卡→右），航向偏置有界（≤AVOID_YAW_MAX），不会绕圈
         const bool cone_here = (avoid_red != nullptr) || (avoid_blue != nullptr);
