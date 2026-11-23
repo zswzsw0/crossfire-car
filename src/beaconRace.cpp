@@ -1020,6 +1020,11 @@ private:
 
         // ★ 避让：方向由赛道路线决定（红卡→左，蓝卡→右），航向偏置有界（≤AVOID_YAW_MAX），不会绕圈
         const bool cone_here = (avoid_red != nullptr) || (avoid_blue != nullptr);
+        // ★ 避让优先于走廊（2026-11-23）：有锥要避时不施加走廊回正。
+        //   原因：corridor_wz 与 avoid_wz 都在 ±vel_z_max 附近，叠加后互相抵消，
+        //   实测蓝卡因此直直撞上中间一列的锥（撞后 odom 失真，最后跑到了红色营地）。
+        //   仅对蓝卡生效，红卡走廊行为保持不变。
+        if (cone_here && card_color_ == "blue") corridor_wz = 0.0;
         const double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
         if (cone_here) {
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
