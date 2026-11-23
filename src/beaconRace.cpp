@@ -155,6 +155,10 @@ static constexpr double SENSOR_WATCHDOG_SEC = 0.60;
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
 static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
 static constexpr double MIDROW_RATE_GAIN = 1.30;  // 该区间避让速率倍率
+// ★ 红卡最后一排：蓝锥处改为向内(-y)偏转，并加大幅度（蓝卡不受影响）
+static constexpr double LASTROW_X0 = 4.20;  // 最后一排起点 x
+static constexpr double LASTROW_X1 = 5.20;  // 最后一排终点 x
+static constexpr double RED_LASTROW_RATE_GAIN = 1.80;  // 红卡该区间的避让幅度倍率
 // ★ 雷区限速：锥桶最密的这段主动降速，换取足够的避让反应距离。
 //   1.43 m/s 时每帧前进 0.20m，从看见锥到转够角度约需 3 帧 ≈ 0.60m；
 //   降到 1.15 m/s 后每帧 0.16m，同样 3 帧只需 0.49m，感知压力明显下降。
@@ -1022,18 +1026,27 @@ private:
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
             double area  = avoid_red ? avoid_red->area : avoid_blue->area;
             double max_a = avoid_red ? cfg_.red_cone_max_area : cfg_.blue_cone_max_area;
-            // ★ 识别到蓝锥：起转速率放大，让得更快（红卡 2.30、蓝卡 1.50）
+            // ★ 识别到蓝锥：起转速率放大，让得更快
             double rate = AVOID_YAW_RATE;
             if (avoid_blue != nullptr) {
                 rate *= (card_color_ == "red") ? RED_BLUE_CONE_RATE_GAIN : BLUE_BLUE_CONE_RATE_GAIN;
             }
             if (x_ > MIDROW_X0 && x_ < MIDROW_X1) rate *= MIDROW_RATE_GAIN;   // 中间排区域反应更快
-            if (area > max_a * 0.6) avoid_yaw_ = off_dir * AVOID_YAW_MAX;
-            avoid_yaw_ += off_dir * rate;
+            // ★ 红卡在最后一排蓝锥处：改为【向内】偏转并加大幅度。
+            //   原来红卡一律向外(+y)让，到最后一排(x≈4.2~5.2)会把车推到场地外侧
+            //   （实测 y 峰值 1.19），末段收不回来。这里改成向内(-y)让。
+            double dir = off_dir;
+            if (card_color_ == "red" && avoid_blue != nullptr
+                && x_ > LASTROW_X0 && x_ < LASTROW_X1) {
+                dir = -1.0;
+                rate *= RED_LASTROW_RATE_GAIN;
+            }
+            if (area > max_a * 0.6) avoid_yaw_ = dir * AVOID_YAW_MAX;
+            avoid_yaw_ += dir * rate;
             ++avoid_frames_;
             avoiding_    = true;
             avoid_color_ = avoid_red ? "red" : "blue";
-            avoid_side_  = (off_dir > 0.0) ? "LEFT" : "RIGHT";
+            avoid_side_  = (dir > 0.0) ? "LEFT" : "RIGHT";
         } else {
             avoid_frames_ = 0;
             if (std::abs(avoid_yaw_) <= AVOID_YAW_RECOVER) avoid_yaw_ = 0;
