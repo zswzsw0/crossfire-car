@@ -147,6 +147,9 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 //   所以提高"偏转力度"只能靠加快起转速率。
 static constexpr double RED_BLUE_CONE_RATE_GAIN  = 1.85;  // 红卡见蓝锥时速率倍率（2.30->1.85：再降低避让幅度）
 static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 1.55;  // 蓝卡见蓝锥时速率倍率（1.90->1.55：再降低避让幅度）
+// ★ 传感器看门狗：底盘数据中断时程序仍会「盲发」速度（2026-11-23 实测车径直冲出场地）。
+//   连续这么久收不到新的底盘帧、且仍在下发运动指令 → 立即发零速并停止本次导航。
+static constexpr double SENSOR_WATCHDOG_SEC = 0.60;
 // ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
 static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
@@ -499,6 +502,9 @@ public:
             }
             miss = 0;
             pollOdom();
+            if (checkSensorWatchdog()) {   // ★ 底盘数据中断 → 已发零速，跳出
+                // 继续循环只为刷新画面，不再下发任何速度
+            }
 // C-3 每帧统一缩放到 IMG_W×IMG_H 再做 HSV 变换，后续所有阈值都是按这个尺度标定的。
             cv::resize(frame, image, cv::Size(IMG_W, IMG_H), 0, 0, cv::INTER_AREA);
             cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
@@ -601,6 +607,40 @@ private:
     }
 
     void sendStop() { send(0, 0); }
+
+    // ★ 传感器看门狗
+    //   2026-11-23 事故：底盘数据帧中断后 pose 冻结，程序仍持续下发 vx=0.65，
+    //   车离开据点后径直向外全速冲出场地，且 kill 掉进程后底盘保持最后的指令继续跑。
+    //   这里在「仍在命令运动」且「数据帧超过 SENSOR_WATCHDOG_SEC 没更新」时立即停。
+    uint64_t wd_seq_ = 0;
+    std::chrono::steady_clock::time_point wd_tp_ = std::chrono::steady_clock::now();
+    bool wd_tripped_ = false;
+
+    bool checkSensorWatchdog()
+    {
+        if (wd_tripped_) return true;
+        uint64_t seq = g_sensorFrames.load(std::memory_order_acquire);
+        auto now = std::chrono::steady_clock::now();
+        if (seq != wd_seq_) {           // 有新帧，计时复位
+            wd_seq_ = seq;
+            wd_tp_ = now;
+            return false;
+        }
+        // 没在下发运动指令时不判超时（避免待机误报）
+        if (std::abs(cmd_vx_) < 0.05 && std::abs(cmd_wz_) < 0.05) {
+            wd_tp_ = now;
+            return false;
+        }
+        if (std::chrono::duration<double>(now - wd_tp_).count() < SENSOR_WATCHDOG_SEC) return false;
+
+        wd_tripped_ = true;
+        motion_enabled_ = false;        // 之后 send() 一律下发零速
+        sendStop();
+        phase_ = Phase::Done;           // 结束本次导航
+        std::cout << "\nSENSOR_LOST 底盘数据中断超过 " << SENSOR_WATCHDOG_SEC
+                  << "s（pose 冻结），已发零速并停止导航\n";
+        return true;
+    }
 
     void pollOdom()
     {
@@ -1360,6 +1400,7 @@ int main(int argc, char** argv)
     Config cfg;
     std::string config_arg;
     bool no_drive = false, force_card = false, no_stream = false, have_uart = false;
+    bool stop_only = false;   // --stop：只打开串口狂发零速帧然后退出，用于紧急停车
     int cam = -1;
     std::string uart;
     for (int i = 1; i < argc; ++i) {
@@ -1378,6 +1419,7 @@ int main(int argc, char** argv)
         else if (a == "--no-drive") no_drive = true;
         else if (a == "--force-card") force_card = true;
         else if (a == "--no-stream") no_stream = true;
+        else if (a == "--stop") stop_only = true;
         else { std::cerr << "未知参数: " << a << "\n"; printHelp(); return 1; }
     }
 
@@ -1405,6 +1447,18 @@ int main(int argc, char** argv)
         return 1;
     }
     std::thread reader(readThreadFunc, &port, std::ref(g_running));
+    // ★ 紧急停车模式：只发零速帧，不开摄像头、不进状态机
+    if (stop_only) {
+        for (int i = 0; i < 40; ++i) {
+            sendVelocity(&port, 0, 0, 0);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        g_running = false;
+        if (reader.joinable()) reader.join();
+        port.closePort();
+        std::cout << "STOP sent (40 帧零速)\n";
+        return 0;
+    }
     BeaconRace race(&port, cfg);
     int rc = race.run();
     g_running = false;

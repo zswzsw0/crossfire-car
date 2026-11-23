@@ -1,7 +1,7 @@
 #!/bin/sh
 # beaconRace 控制器
 #   start [--drive]   起主程序（默认 --no-drive）
-#   stop             停主程序 + 释放摄像头 + 清 stdin 管道
+#   stop             先发零速帧把车停住，再停主程序 + 释放摄像头 + 清 stdin 管道
 #   status           看进程/端口/摄像头占用
 #   cam              只列摄像头占用者
 #   cam --force      杀掉所有占用 /dev/video* 的进程
@@ -35,11 +35,22 @@ pids_holding_cam() {
   done
 }
 
+# ★ 紧急停车：直接打开串口连发零速帧（不依赖主程序是否还活着）
+emergency_stop() {
+  if [ -x ./beaconRace ]; then
+    ./beaconRace --stop 2>&1 | tail -1
+  else
+    echo "  (beaconRace 不存在，跳过零速帧)"
+  fi
+}
+
 case "$1" in
   start)
     shift
     MODE="--no-drive"
     [ "${1:-}" = "--drive" ] && MODE=""
+    # 起新程序前先确保车是停的（上一轮可能异常退出）
+    emergency_stop >/dev/null 2>&1
     pkill -x beaconRace 2>/dev/null
     pkill -f "sleep 86400" 2>/dev/null
     # 摄像头独占：先把独立预览服务停掉，否则 beaconRace 打不开相机
@@ -65,13 +76,25 @@ case "$1" in
     tail -8 "$LOG"
     ;;
   stop)
+    # ★ 关键顺序：先发零速帧（此时串口还通），再杀进程。
+    #   只 kill 不发零速的话，底盘会保持最后一次速度指令继续跑（2026-11-23 实测）。
+    echo "=== 1) 发零速帧 ==="
+    emergency_stop
+    echo "=== 2) 停主程序 ==="
     pkill -x beaconRace 2>/dev/null && echo "beaconRace stopped (TERM)" || echo "beaconRace not running"
     sleep 1
-    pkill -9 -x beaconRace 2>/dev/null     # 如果 TERM 没退干净再补刀
-    pkill -f "sleep 86400" 2>/dev/null     # 清掉保持 stdin 的管道进程
+    pkill -9 -x beaconRace 2>/dev/null
+    pkill -f "sleep 86400" 2>/dev/null
     sleep 1
+    echo "=== 3) 再补一次零速（防止主程序退出时冲掉）==="
+    emergency_stop
     echo "=== CAMERA HOLDERS ==="
     holders
+    ;;
+  hold)
+    # 只停车，不杀程序（临时把车按住，程序继续跑）
+    echo "=== 只发零速帧（不停程序）==="
+    emergency_stop
     ;;
   cam)
     echo "=== 占用 /dev/video* 的进程 ==="
@@ -101,6 +124,6 @@ case "$1" in
     holders
     ;;
   *)
-    echo "usage: $0 start [--drive] | stop | status | cam [--force]"
+    echo "usage: $0 start [--drive] | stop | hold | status | cam [--force]"
     ;;
 esac
