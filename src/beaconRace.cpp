@@ -168,12 +168,6 @@ static constexpr double MID_X0 = 1.60;  // 区间起点 x
 static constexpr double MID_X1 = 5.00;  // 区间终点 x
 static constexpr double MID_VX_GAIN = 1.30;  // 该区间丢线速度倍率（0.48 -> 0.624）
 static constexpr double AVOID_YAW_RECOVER= 0.040; // 无障碍时每帧回正步长（×1.63^2：配套）
-// ★ 横向位移预算：偏离路线超过此值就不再避让，先回归路线（防一路偏出去撞锥）
-static constexpr double AVOID_CROSS_BUDGET = 0.40;  // (m)
-// ★ 末段横向偏移（只改停车位置，不改雷区路径）
-static constexpr double GOAL_LAT_SHIFT_BLUE  = 0.57;  // 蓝卡末段往中线方向偏移(m)
-static constexpr double GOAL_LAT_SHIFT_START = 2.00;  // 距目标多远开始偏移(m)
-static constexpr double GOAL_LAT_SHIFT_RAMP  = 1.50;  // 偏移量从 0 到满值的过渡距离(m)
 static constexpr double CORRIDOR_HALF_W  = 0.55;  // 允许偏离 base→goal 直线的横向半宽(米)
 static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角速度增益（1.2->1.8：高速下更早拉回）
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
@@ -957,17 +951,7 @@ private:
     bool navGoal(const Track* track, const Blob* avoid_red, const Blob* avoid_blue)
     {
         avoiding_ = false;
-        // ★ 末段横向偏移（只改停车位置，不改雷区路径）
-        //   实测：蓝卡瞄准 -1.15 时车停在外边界外 8cm，需往中线方向移 57cm 才到营地中心。
-        //   但直接改瞄准点会把整条走廊线也带走（试过 -0.56，路线穿锥，连撞多个锥）。
-        //   所以在最后 GOAL_LAT_SHIFT_START 米内，把有效目标 y 平滑偏移过去。
-        const double dist_raw = std::hypot(goal_x_ - x_, goal_y_ - y_);
-        double gy_eff = goal_y_;
-        if (card_color_ == "blue" && dist_raw < GOAL_LAT_SHIFT_START) {
-            double w = clampd((GOAL_LAT_SHIFT_START - dist_raw) / GOAL_LAT_SHIFT_RAMP, 0.0, 1.0);
-            gy_eff += GOAL_LAT_SHIFT_BLUE * w;
-        }
-        double dx = goal_x_ - x_, dy = gy_eff - y_;
+        double dx = goal_x_ - x_, dy = goal_y_ - y_;
         double dist = std::hypot(dx, dy);
         double yaw_to_x = wrapPi(0.0 - yaw_);   // ★ 车头对准 +x 的误差（营地入口方向）
         // ★ 过冲保护：已经越过目标点 GOAL_OVERSHOOT_TOL 以上就立即停车。
@@ -1034,10 +1018,7 @@ private:
         // ★ 避让：方向由赛道路线决定（红卡→左，蓝卡→右），航向偏置有界（≤AVOID_YAW_MAX），不会绕圈
         const bool cone_here = (avoid_red != nullptr) || (avoid_blue != nullptr);
         const double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
-        // ★ 横向位移预算：已经偏离路线超过 AVOID_CROSS_BUDGET 时不再继续避让，
-        //   改为靠回正把车拉回来。实测蓝卡会一路向下偏到 -1.19m 撞到最下方的锥。
-        const bool over_avoid_budget = std::abs(cross) > AVOID_CROSS_BUDGET;
-        if (cone_here && !over_avoid_budget) {
+        if (cone_here) {
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
             double area  = avoid_red ? avoid_red->area : avoid_blue->area;
             double max_a = avoid_red ? cfg_.red_cone_max_area : cfg_.blue_cone_max_area;
