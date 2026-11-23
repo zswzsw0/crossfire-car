@@ -1069,7 +1069,14 @@ private:
             erro_ = yaw_cmd;
             return false;
         }
-        if (track) {
+        // ★ 起步段禁用巡线（2026-11-23）：出据点后前 LAUNCH_ALIGN_X_* 米内只按几何目标走。
+        //   实测蓝卡从据点A（+y 侧）朝上出发时，画面左侧是红卡那条黑点线，
+        //   视觉项把 wz 从该有的 -1.3（右转）拉成 +0.39（左转），y 先冲到 1.38
+        //   （走成了红卡的路线）才回头。这里让起步段只信 odom + 目标点，
+        //   先把车头按地图转对，过了起步段再交回巡线。
+        const bool launch_seg = (card_color_ == "blue") ? (x_ < LAUNCH_ALIGN_X_BLUE)
+                                                       : (x_ < LAUNCH_ALIGN_X_RED);
+        if (track && !launch_seg) {
             double vis_err = track->mid_x - CENTER_X;
             double wz = -vis_err * cfg_.vis_wz_gain + cfg_.odom_blend * cfg_.yaw_p * yaw_err_cmd
                       + corridor_wz + avoid_wz;
