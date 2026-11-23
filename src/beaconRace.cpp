@@ -187,7 +187,7 @@ static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏�
 // ★ 第三排是否关闭锥桶避让（见 navGoal 内的说明）：true=关，只用位置控制
 //   关闭区间单独一个起点（4.30），比「往中线偏移」的起点（5.00）更早：
 //   实测外漂真正发生在 x=4.4~5.2，必须在漂起来之前就关掉避让。
-static constexpr bool   THIRD_ROW_NO_AVOID = true;
+static constexpr bool   THIRD_ROW_NO_AVOID = false;  // false = 第三排照常识别并避让锥桶（2026-11-23 回退：关掉后路径内收到 -0.80，内收过头）
 static constexpr double THIRD_ROW_NOAVOID_X0 = 4.30;  // 关避让区间起点 x(m)，5.00 -> 4.30
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
@@ -1075,7 +1075,7 @@ private:
         } else {
             avoid_frames_ = 0;
             // 第三排区间：立即清零偏置（否则要十几帧才衰减完，等于还在让）
-            if (third_row_seg || std::abs(avoid_yaw_) <= AVOID_YAW_RECOVER) avoid_yaw_ = 0;
+            if ((THIRD_ROW_NO_AVOID && third_row_seg) || std::abs(avoid_yaw_) <= AVOID_YAW_RECOVER) avoid_yaw_ = 0;
             else avoid_yaw_ -= std::copysign(AVOID_YAW_RECOVER, avoid_yaw_);
         }
         avoid_yaw_ = clampd(avoid_yaw_, -AVOID_YAW_MAX, AVOID_YAW_MAX);
