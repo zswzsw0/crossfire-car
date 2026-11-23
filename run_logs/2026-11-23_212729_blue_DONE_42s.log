@@ -1,0 +1,70 @@
+已读取配置 /home/root/beacon_race.cfg (42 项)
+已读取配置 beacon_race.cfg (42 项)
+Open serial port success: /dev/ttyUSB0, baudrate: 115200
+摄像头实际参数: 320 x 240 @ 30.00 fps
+FOURCC: MJPG
+realDelayMs: 33.3 ms
+ImgStream: listening on port 9999
+beaconRace 启动 | WAIT_CARD | drive=on force=off gyro_yaw=on
+蓝卡 A(1,0.98) -> (6.9,-0.96)
+红卡 B(1,-0.98) -> (6.9,0.89)
+按键: f改HSV q保存 l重载 x停车/恢复 v切换画面 c退出
+ImgStream: client 192.168.1.20
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok BLUE
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok BLUE
+
+CARD=blue base(1,0.98) goal(6.9,-0.96) gyro_bias=-0.150315 rad/s n=184
+NAV_BASE card=blue pose=(0.00265097,0.000530764) yaw=21.0098deg vx=1.67745 wz=0.696428 err=0.409664 odom=ok 
+NAV_BASE card=blue pose=(0.785296,0.863275) yaw=52.4053deg vx=0.293259 wz=-0.708368 err=-0.416687 odom=ok 
+
+到达据点，停车 1 秒
+WAIT_BASE card=blue pose=(0.907399,0.971969) yaw=19.6119deg vx=0 wz=0 err=0 odom=ok 
+
+离开据点，前往终点
+NAV_GOAL card=blue pose=(0.925999,0.978151) yaw=18.2086deg vx=0.65 wz=-1.17 err=-0.811517 odom=ok 
+NAV_GOAL card=blue pose=(1.60985,0.83597) yaw=-29.1728deg vx=0.65 wz=0.00318961 err=0.00187624 odom=ok 
+NAV_GOAL card=blue pose=(2.23184,0.488739) yaw=-28.2857deg vx=0.65 wz=0.0216899 err=0.0127587 odom=ok 
+NAV_GOAL card=blue pose=(2.95579,0.082218) yaw=-31.2855deg vx=0.624 wz=0.48909 err=0.2877 odom=ok 
+NAV_GOAL card=blue pose=(3.50758,-0.159856) yaw=-37.4387deg vx=1 wz=-1.17 err=0.3375 odom=ok 
+NAV_GOAL card=blue pose=(3.94147,-0.746799) yaw=-46.2916deg vx=0.57 wz=-0.698522 err=0.2625 odom=ok 
+NAV_GOAL card=blue pose=(4.54709,-1.13248) yaw=-11.1057deg vx=0.43 wz=0.681748 err=0.267003 odom=ok 
+NAV_GOAL card=blue pose=(4.99968,-1.14264) yaw=-8.18596deg vx=0.43 wz=0.156531 err=0.238689 odom=ok 
+NAV_GOAL card=blue pose=(5.4639,-1.22475) yaw=-9.12458deg vx=0.43 wz=0.454295 err=0.484792 odom=ok 
+NAV_GOAL card=blue pose=(5.9272,-1.19463) yaw=19.0735deg vx=0.43 wz=0.295461 err=0.10429 odom=ok 
+NAV_GOAL card=blue pose=(6.312,-1.02338) yaw=21.7264deg vx=0.43 wz=-0.566274 err=-0.333102 odom=ok 
+NAV_GOAL card=blue pose=(6.722,-0.95364) yaw=1.30301deg vx=0.200383 wz=-0.0528754 err=-0.0311032 odom=ok 
+
+到达终点，停车
+DONE card=blue pose=(6.80152,-0.952923) yaw=-0.0874461deg vx=0 wz=0 err=0 odom=ok 
+DONE card=blue pose=(6.80152,-0.952923) yaw=-0.0874461deg vx=0 wz=0 err=0 odom=ok 
