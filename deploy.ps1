@@ -59,7 +59,7 @@ if ($Restore) {
 
 # ---------------- 1. build on the VM ----------------
 Say "1/5 cross-compile on VM ($VmHost) ..."
-$r = SshRun $VmHost "cd '$SerialDir' && sh build_la.sh 2>&1 | tail -6"
+$r = SshRun $VmHost "cd '$SerialDir' && sh build_la.sh > /tmp/br_build.log 2>&1 && tail -6 /tmp/br_build.log || { tail -30 /tmp/br_build.log; exit 1; }"
 Say $r.Out
 if ($r.Code -ne 0) { Fail 'build failed on VM' }
 

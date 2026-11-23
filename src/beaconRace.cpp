@@ -171,6 +171,9 @@ static constexpr double AVOID_YAW_RECOVER= 0.040; // 无障碍时每帧回正步
 static constexpr double CORRIDOR_HALF_W  = 0.55;  // 允许偏离 base→goal 直线的横向半宽(米)
 static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角速度增益（1.2->1.8：高速下更早拉回）
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
+// ★ 提前刹车：用更宽的横向窗口提前发现「即将进入路线」的锥桶，先降速再转向
+static constexpr double CONE_NEAR_WIDTH_SCALE = 1.70;  // 预警窗口 = 正常判定窗口 x 1.70
+static constexpr double CONE_NEAR_VX = 0.80;           // 锥桶临近时的速度上限(m/s)
 
 static std::atomic<bool> g_running{true};
 static void signalHandler(int) { g_running = false; }
@@ -524,16 +527,26 @@ public:
 
             Blob avoid_red, avoid_blue;
             bool has_red = false, has_blue = false;
+            Blob near_red, near_blue;
+            bool near_red_on = false, near_blue_on = false;
             if (phase_ == Phase::NavGoal) {
                 has_red = pickConeInPath(reds, cfg_.red_cone_min_area, has_track ? &track : nullptr, avoid_red);
                 has_blue = pickConeInPath(blues, cfg_.blue_cone_min_area, has_track ? &track : nullptr, avoid_blue);
+                // ★ 提前刹车：用更宽的窗口找「即将进入路线」的锥桶，先降速再转向
+                if (!has_red)
+                    near_red_on = pickConeInPath(reds, cfg_.red_cone_min_area,
+                                                 has_track ? &track : nullptr, near_red, CONE_NEAR_WIDTH_SCALE);
+                if (!has_blue)
+                    near_blue_on = pickConeInPath(blues, cfg_.blue_cone_min_area,
+                                                  has_track ? &track : nullptr, near_blue, CONE_NEAR_WIDTH_SCALE);
             }
             cv::Rect card_box;
             bool has_card = false;
             update(hsv, has_track ? &track : nullptr,
                    has_red ? &avoid_red : nullptr,
                    has_blue ? &avoid_blue : nullptr,
-                   card_box, has_card);
+                   card_box, has_card,
+                   (near_red_on || near_blue_on));
 
             draw(image, blacks, reds, blues, has_track ? &track : nullptr, has_card ? &card_box : nullptr);
             if (view_ == 0) stream.push(image);
@@ -619,6 +632,7 @@ private:
     //   2026-11-23 事故：底盘数据帧中断后 pose 冻结，程序仍持续下发 vx=0.65，
     //   车离开据点后径直向外全速冲出场地，且 kill 掉进程后底盘保持最后的指令继续跑。
     //   这里在「仍在命令运动」且「数据帧超过 SENSOR_WATCHDOG_SEC 没更新」时立即停。
+    bool cone_near_ = false;         // ★ 本帧是否有锥桶即将进入路线（提前刹车用）
     int fps_frames_ = 0;              // ★ 帧率统计：本秒内处理的帧数
     uint64_t fps_last_seq_ = 0;      // ★ 帧率统计：上秒的底盘帧号
     uint64_t wd_seq_ = 0;
@@ -890,14 +904,15 @@ private:
     // ★ 通用"挡路锥桶"判定：红锥、蓝锥共用。
     // 阈值随锥桶远近自动放大（cy 越大=越近，允许的横向偏差越大），
     // 这样赛道边缘的蓝锥也能被正确识别为挡路，而不是要求它贴着中间黑点连线。
+    // width_scale > 1 时用更宽的横向窗口，用来提前发现「即将进入路线」的锥桶
     bool pickConeInPath(const std::vector<Blob>& cones, double min_area,
-                        const Track* track, Blob& out) const
+                        const Track* track, Blob& out, double width_scale = 1.0) const
     {
         double ref = track ? track->mid_x : CENTER_X;
         std::vector<Blob> on;
         for (const auto& b : cones) {
             if (b.area < min_area) continue;
-            double thr = CONE_PATH_HALF_W + 90.0 * (b.cy / static_cast<double>(IMG_H));
+            double thr = (CONE_PATH_HALF_W + 90.0 * (b.cy / static_cast<double>(IMG_H))) * width_scale;
             if (std::abs(b.cx - ref) <= thr) on.push_back(b);
         }
         return pickNearest(on, min_area, out);
@@ -956,7 +971,7 @@ private:
         erro_ = wz;
     }
 
-    bool navGoal(const Track* track, const Blob* avoid_red, const Blob* avoid_blue)
+    bool navGoal(const Track* track, const Blob* avoid_red, const Blob* avoid_blue, bool cone_near)
     {
         avoiding_ = false;
         double dx = goal_x_ - x_, dy = goal_y_ - y_;
@@ -1090,6 +1105,9 @@ private:
             // ★ 巡线也要有航向保护：车头歪超过 LOST_YAW 就降速，避免「歪着全速冲」。
             //   实测：航向 -47.5° 时仍走 0.570，一帧横移 0.80m，y 一路冲到 -1.624。
             if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
+            // ★ 提前刹车：锥桶即将进入路线（还没进正路径）时先降速，
+            //   给随后的转向留出时间，避免「到了跟前才转」。
+            if (!cone_here && cone_near) vx = std::min(vx, CONE_NEAR_VX);
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
@@ -1099,6 +1117,8 @@ private:
         if (vx > 0.0 && x_ > MID_X0 && x_ < MID_X1)
             vx *= MID_VX_GAIN;
         if (cone_here) vx = std::min(vx, 0.38);   // 丢线遇锥限速 ×1.3
+        // ★ 提前刹车（丢线分支同上）：锥桶即将进入先降速
+        if (!cone_here && cone_near) vx = std::min(vx, CONE_NEAR_VX);
         if (!cone_here && vx > 0.0 && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
         send(vx, clampd(cfg_.yaw_p * yaw_err_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
         erro_ = yaw_err_cmd;
@@ -1126,10 +1146,11 @@ private:
 
     void update(const cv::Mat& hsv, const Track* track,
                 const Blob* avoid_red, const Blob* avoid_blue,
-                cv::Rect& card_box, bool& has_card)
+                cv::Rect& card_box, bool& has_card, bool cone_near = false)
     {
         has_card = false;
         erro_ = 0;
+        cone_near_ = cone_near;   // 供 navGoal 做提前刹车
         if (phase_ == Phase::WaitCard) {
             avoiding_ = false;
             sendStop();
@@ -1179,7 +1200,7 @@ private:
             return;
         }
         if (phase_ == Phase::NavGoal) {
-            if (navGoal(track, avoid_red, avoid_blue)) {
+            if (navGoal(track, avoid_red, avoid_blue, cone_near_)) {
                 phase_ = Phase::Done;
                 sendStop();
                 std::cout << "\n到达终点，停车\n";
