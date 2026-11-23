@@ -133,9 +133,9 @@ static constexpr double DEPART_VX  = 0.65;  // 该段速度下限(m/s，×1.3)
 //   蓝卡 0.18rad / 2.40m 实测正常；红卡同一设置会贴着中心线走、
 //   在 x≈3.4 撞到中间一排的中间锥，故红卡用更大的角度和更长的距离。
 static constexpr double LAUNCH_ALIGN_X_BLUE = 2.40;  // 蓝卡生效距离(m)
-static constexpr double LAUNCH_ALIGN_X_RED  = 2.80;  // 红卡生效距离(m)（3.60->2.80：向蓝卡靠拢）
+static constexpr double LAUNCH_ALIGN_X_RED  = 2.40;  // 红卡生效距离(m)：与蓝卡一致
 static constexpr double LAUNCH_ALIGN_ANGLE_BLUE = 0.18;  // 蓝卡偏转角(rad，约 10°)
-static constexpr double LAUNCH_ALIGN_ANGLE_RED  = 0.22;  // 红卡偏转角(rad，约 13°)（0.30->0.22：向蓝卡 0.18 靠拢，中间排避让已加强可补偿）
+static constexpr double LAUNCH_ALIGN_ANGLE_RED  = 0.18;  // 红卡偏转角(rad，约 10°)：与蓝卡一致
 
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
@@ -144,7 +144,7 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 // ★ 红卡遇到蓝锥时避让更狠（蓝卡不受影响）
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
-static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.80;  // 红卡见蓝锥时速率倍率（2.30->2.80）
+static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.30;  // 红卡见蓝锥时速率倍率：与蓝卡一致
 static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 2.30;  // 蓝卡见蓝锥时速率倍率（1.50->2.30）
 // ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
