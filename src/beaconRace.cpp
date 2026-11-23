@@ -151,11 +151,6 @@ static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 2.30;  // 蓝卡见蓝锥时�
 // ★ 传感器看门狗：底盘数据中断时程序仍会「盲发」速度（2026-11-23 实测车径直冲出场地）。
 //   连续这么久收不到新的底盘帧、且仍在下发运动指令 → 立即发零速并停止本次导航。
 static constexpr double SENSOR_WATCHDOG_SEC = 0.60;
-// ★ 单次直行距离限制：连续直行超过这个距离就强制修正一次
-static constexpr double STRAIGHT_MAX_DIST = 0.60;      // 单次直行上限(m)
-static constexpr double STRAIGHT_TRIGGER_CROSS = 0.05; // 偏离超过此值才补修正(m)
-static constexpr double STRAIGHT_NUDGE_GAIN = 2.0;     // 修正量 = 增益 x 偏离量
-static constexpr double STRAIGHT_NUDGE_WZ = 0.45;      // 单次修正的角速度上限(rad/s)
 // ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
 static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
@@ -624,11 +619,8 @@ private:
     //   2026-11-23 事故：底盘数据帧中断后 pose 冻结，程序仍持续下发 vx=0.65，
     //   车离开据点后径直向外全速冲出场地，且 kill 掉进程后底盘保持最后的指令继续跑。
     //   这里在「仍在命令运动」且「数据帧超过 SENSOR_WATCHDOG_SEC 没更新」时立即停。
-    // ★ 单次直行距离计数（成员变量）
     int fps_frames_ = 0;              // ★ 帧率统计：本秒内处理的帧数
     uint64_t fps_last_seq_ = 0;      // ★ 帧率统计：上秒的底盘帧号
-    double straight_dist_ = 0.0;
-    std::chrono::steady_clock::time_point straight_tp_ = std::chrono::steady_clock::now();
     uint64_t wd_seq_ = 0;
     std::chrono::steady_clock::time_point wd_tp_ = std::chrono::steady_clock::now();
     bool wd_tripped_ = false;
@@ -1030,31 +1022,6 @@ private:
         double over = std::abs(cross) - CORRIDOR_HALF_W;
         if (over > 0)
             corridor_wz = -std::copysign(CORRIDOR_GAIN * over, cross);
-
-        // ★ 单次直行距离限制
-        //   问题：车常常一口气直行很长一段（实测 1.8m 内完全不纠偏），
-        //        横向误差一路累积到收不回来。
-        //   做法：累计「非避让状态下的前进距离」，超过 STRAIGHT_MAX_DIST
-        //        就强制朝路线方向补一次修正，然后清零重新计数。
-        {
-            auto now = std::chrono::steady_clock::now();
-            double dt = std::chrono::duration<double>(now - straight_tp_).count();
-            straight_tp_ = now;
-            if (dt > 0.5) dt = 0.5;                 // 防止卡顿造成跳变
-            if (avoiding_) {
-                straight_dist_ = 0.0;               // 避让不算直行
-            } else {
-                straight_dist_ += std::abs(cmd_vx_) * dt;
-                if (straight_dist_ >= STRAIGHT_MAX_DIST) {
-                    straight_dist_ = 0.0;
-                    if (std::abs(cross) > STRAIGHT_TRIGGER_CROSS) {
-                        double nudge = std::min(STRAIGHT_NUDGE_WZ,
-                                                STRAIGHT_NUDGE_GAIN * std::abs(cross));
-                        corridor_wz += -std::copysign(nudge, cross);
-                    }
-                }
-            }
-        }
 
         // ★ 避让：方向由赛道路线决定（红卡→左，蓝卡→右），航向偏置有界（≤AVOID_YAW_MAX），不会绕圈
         const bool cone_here = (avoid_red != nullptr) || (avoid_blue != nullptr);
