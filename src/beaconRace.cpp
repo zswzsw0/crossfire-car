@@ -171,8 +171,11 @@ static constexpr double MID_X0 = 1.60;  // 区间起点 x
 static constexpr double MID_X1 = 5.00;  // 区间终点 x
 static constexpr double MID_VX_GAIN = 1.30;  // 该区间丢线速度倍率（0.48 -> 0.624）
 static constexpr double AVOID_YAW_RECOVER= 0.040; // 无障碍时每帧回正步长（×1.63^2：配套）
-static constexpr double CORRIDOR_HALF_W  = 0.55;  // 允许偏离 base→goal 直线的横向半宽(米)
-static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角速度增益（1.2->1.8：高速下更早拉回）
+// ★ 走廊约束分卡（2026-11-23）：蓝卡半宽略收，红卡保持原值不动。
+//   蓝卡实测：擦到第三排最下侧蓝锥，中段 x=5.25->5.70 从 -1.188 漂到 -1.306。
+static constexpr double CORRIDOR_HALF_W_BLUE = 0.45;  // 蓝卡：允许偏离直线半宽(米)，0.55 -> 0.45
+static constexpr double CORRIDOR_HALF_W_RED  = 0.55;  // 红卡：保持原值，不动
+static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角速度增益（红蓝共用，未改）
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -1014,17 +1017,17 @@ private:
         ux /= un; uy /= un;
         double cross = -(x_ - base_x_) * uy + (y_ - base_y_) * ux;
         double corridor_wz = 0.0;
-        double over = std::abs(cross) - CORRIDOR_HALF_W;
+        double over = std::abs(cross) - ((card_color_ == "blue") ? CORRIDOR_HALF_W_BLUE : CORRIDOR_HALF_W_RED);
         if (over > 0)
             corridor_wz = -std::copysign(CORRIDOR_GAIN * over, cross);
 
         // ★ 避让：方向由赛道路线决定（红卡→左，蓝卡→右），航向偏置有界（≤AVOID_YAW_MAX），不会绕圈
         const bool cone_here = (avoid_red != nullptr) || (avoid_blue != nullptr);
-        // ★ 避让优先于走廊（2026-11-23）：有锥要避时不施加走廊回正。
-        //   原因：corridor_wz 与 avoid_wz 都在 ±vel_z_max 附近，叠加后互相抵消，
-        //   实测蓝卡因此直直撞上中间一列的锥（撞后 odom 失真，最后跑到了红色营地）。
-        //   仅对蓝卡生效，红卡走廊行为保持不变。
-        if (cone_here && card_color_ == "blue") corridor_wz = 0.0;
+        // ★ 避让优先于走廊（2026-11-23）：有锥要避时蓝卡把走廊回正削掉一半。
+        //   完全清零会让车在避让期间毫无约束（实测 x=5.25->5.70 从 -1.188 漂到 -1.306，
+        //   擦到第三排最下侧蓝锥）；完全相加又会抵消避让（更早实测撞中间一列锥）。
+        //   取一半：避让仍占优，同时保留一半回正压住外漂。仅蓝卡生效，红卡不变。
+        if (cone_here && card_color_ == "blue") corridor_wz *= 0.5;
         const double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
         if (cone_here) {
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
