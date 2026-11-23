@@ -124,6 +124,7 @@ static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则
 
 // ★ 红卡去据点更快（仅红卡，蓝卡保持 1.0）
 static constexpr double RED_BASE_APPROACH_GAIN = 1.40;  // 近距离比例增益与爬行下限的倍率
+static constexpr double RED_BASE_WZ_MAX = 0.75;  // 红卡在据点的转向角速度上限(rad/s)，防止转过头
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
@@ -855,6 +856,13 @@ private:
         double yaw_err = wrapPi(bearing - yaw_);
         if (dist > cfg_.goal_pos_tol) {
             double vx = 0, wz = clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max);
+            // ★ 红卡在据点限制转向角速度：满舵转向 1 秒就转 67°，
+            //   而到据点的方位角只需转 44°，于是转过头、先向右甩一段再拐回来。
+            //   限速后转角更贴合需求，这一段向右的多余动作就消失了（蓝卡不受影响）。
+            if (card_color_ == "red") {
+                const double cap = std::min(cfg_.vel_z_max, RED_BASE_WZ_MAX);
+                wz = clampd(wz, -cap, cap);
+            }
             if (std::abs(yaw_err) <= SPIN_YAW) {
                 // ★ 红卡去据点更快（蓝卡保持原值）
                 const double base_gain = (card_color_ == "red") ? RED_BASE_APPROACH_GAIN : 1.0;
