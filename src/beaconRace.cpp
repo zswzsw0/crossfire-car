@@ -184,6 +184,8 @@ static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
 static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
 static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
+// ★ 第三排是否关闭锥桶避让（见 navGoal 内的说明）：true=关，只用位置控制
+static constexpr bool   THIRD_ROW_NO_AVOID = true;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -1039,7 +1041,12 @@ private:
             corridor_wz = -std::copysign(CORRIDOR_GAIN * over, cross);
 
         // ★ 避让：方向由赛道路线决定（红卡→左，蓝卡→右），航向偏置有界（≤AVOID_YAW_MAX），不会绕圈
-        const bool cone_here = (avoid_red != nullptr) || (avoid_blue != nullptr);
+        // ★ 第三排：关闭锥桶避让，只用位置控制把车摆向营地入口（2026-11-23）
+        //   该段距终点已 < near_goal_dist，本来就走位置控制分支（不读巡线），
+        //   外漂来自避让动作本身，故这里直接把避让关掉。改 THIRD_ROW_NO_AVOID=false 可退回。
+        const bool third_row_seg = (x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1);
+        const bool cone_here = !(THIRD_ROW_NO_AVOID && third_row_seg)
+                            && ((avoid_red != nullptr) || (avoid_blue != nullptr));
         // ★ 避让优先于走廊（2026-11-23）：有锥要避时蓝卡把走廊回正削掉一半。
         //   完全清零会让车在避让期间毫无约束（实测 x=5.25->5.70 从 -1.188 漂到 -1.306，
         //   擦到第三排最下侧蓝锥）；完全相加又会抵消避让（更早实测撞中间一列锥）。
@@ -1064,7 +1071,8 @@ private:
             avoid_side_  = (off_dir > 0.0) ? "LEFT" : "RIGHT";
         } else {
             avoid_frames_ = 0;
-            if (std::abs(avoid_yaw_) <= AVOID_YAW_RECOVER) avoid_yaw_ = 0;
+            // 第三排区间：立即清零偏置（否则要十几帧才衰减完，等于还在让）
+            if (third_row_seg || std::abs(avoid_yaw_) <= AVOID_YAW_RECOVER) avoid_yaw_ = 0;
             else avoid_yaw_ -= std::copysign(AVOID_YAW_RECOVER, avoid_yaw_);
         }
         avoid_yaw_ = clampd(avoid_yaw_, -AVOID_YAW_MAX, AVOID_YAW_MAX);
