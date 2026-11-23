@@ -182,7 +182,8 @@ static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角
 static constexpr double THIRD_ROW_X0   = 5.00;  // 区间起点 x(m)
 static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
-static constexpr double THIRD_ROW_DY   = 0.22;  // 往中线(+y)的偏移量(m)，0.15 -> 0.22：最差轮次峰值仍到 -1.252，离锥只剩 3cm
+static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
+static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -965,11 +966,14 @@ private:
     {
         avoiding_ = false;
         double dx = goal_x_ - x_, dy = goal_y_ - y_;
-        // ★ 蓝卡第三排往中线修正：该段把有效目标 y 往 +y（中线）偏一点，压住外漂。
-        //   两端用 THIRD_ROW_RAMP 线性过渡，避免目标点突跳造成抖动。只影响蓝卡。
-        if (card_color_ == "blue") {
+        // ★ 第三排往中线修正：该段把有效目标 y 往中线偏一点，压住外漂。
+        //   两端用 THIRD_ROW_RAMP 线性过渡，避免目标点突跳造成抖动。
+        //   蓝卡在中线下方(-y)，往 +y 偏；红卡在上方(+y)，往 -y 偏；偏移量各自独立。
+        if (card_color_ == "blue" || card_color_ == "red") {
             const double w = clampd(std::min(x_ - THIRD_ROW_X0, THIRD_ROW_X1 - x_) / THIRD_ROW_RAMP, 0.0, 1.0);
-            if (w > 0.0) dy += THIRD_ROW_DY * w;
+            if (w > 0.0) {
+                dy += (card_color_ == "blue") ? (THIRD_ROW_DY_BLUE * w) : (-THIRD_ROW_DY_RED * w);
+            }
         }
         double dist = std::hypot(dx, dy);
         double yaw_to_x = wrapPi(0.0 - yaw_);   // ★ 车头对准 +x 的误差（营地入口方向）
