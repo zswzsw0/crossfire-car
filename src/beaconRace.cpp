@@ -185,6 +185,8 @@ static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避�
 static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
 static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
+// ★ 让行方向判定死区(px)：锥桶几乎在正前方时不切方向，避免左右抖
+static constexpr double AVOID_SIDE_DEADBAND = 25.0;
 
 static std::atomic<bool> g_running{true};
 static void signalHandler(int) { g_running = false; }
@@ -1045,7 +1047,19 @@ private:
         //   擦到第三排最下侧蓝锥）；完全相加又会抵消避让（更早实测撞中间一列锥）。
         //   取一半：避让仍占优，同时保留一半回正压住外漂。仅蓝卡生效，红卡不变。
         if (cone_here && card_color_ == "blue") corridor_wz *= 0.5;
-        const double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
+        // ★ 让行方向：按锥桶在画面的横向位置决定（2026-11-23）
+        //   原来按卡色硬编码（蓝卡永远右让、红卡永远左让），锥桶出现在同侧时
+        //   就会「主动朝锥转」——实测蓝卡因此撞上第三排最下侧的蓝锥。
+        //   现在：锥在画面左侧就往右让、在右侧就往左让；锥正好在正前方（死区内）
+        //   时退回按卡色的默认让行侧，避免方向左右抖动。
+        double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
+        if (cone_here) {
+            const double cone_cx = avoid_red ? avoid_red->cx : avoid_blue->cx;
+            const double ref_x   = track ? track->mid_x : CENTER_X;
+            const double dxc     = cone_cx - ref_x;
+            if (dxc < -AVOID_SIDE_DEADBAND)      off_dir = -1.0;   // 锥在左 -> 往右让
+            else if (dxc > AVOID_SIDE_DEADBAND)  off_dir = 1.0;    // 锥在右 -> 往左让
+        }
         if (cone_here) {
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
             double area  = avoid_red ? avoid_red->area : avoid_blue->area;
@@ -1056,6 +1070,8 @@ private:
                 rate *= (card_color_ == "red") ? RED_BLUE_CONE_RATE_GAIN : BLUE_BLUE_CONE_RATE_GAIN;
             }
             if (x_ > MIDROW_X0 && x_ < MIDROW_X1) rate *= MIDROW_RATE_GAIN;   // 中间排区域反应更快
+            // ★ 方向切换时先把旧的偏置清零，否则要好几帧才能从一侧摆到另一侧
+            if (avoid_yaw_ * off_dir < 0.0) avoid_yaw_ = 0.0;
             if (area > max_a * 0.6) avoid_yaw_ = off_dir * AVOID_YAW_MAX;
             avoid_yaw_ += off_dir * rate;
             ++avoid_frames_;
