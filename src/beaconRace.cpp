@@ -182,7 +182,7 @@ static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角
 static constexpr double THIRD_ROW_X0   = 5.00;  // 区间起点 x(m)
 static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
-static constexpr double THIRD_ROW_DY   = 0.15;  // 往中线(+y)的偏移量(m)
+static constexpr double THIRD_ROW_DY   = 0.22;  // 往中线(+y)的偏移量(m)，0.15 -> 0.22：最差轮次峰值仍到 -1.252，离锥只剩 3cm
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
