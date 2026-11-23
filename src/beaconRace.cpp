@@ -118,7 +118,7 @@ static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值�
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.06;  // 越过目标点此距离以上立即停车（0.10->0.06：更早兜住，防冲过头）
 
 // ★ 接近段速度分区 / 出据点加速
-static constexpr double GOAL_SLOW_DIST   = 1.80;  // 距目标此距离内进入减速曲线（1.40->1.80：提前 0.4m 刹车，防单次冲过头）
+static constexpr double GOAL_SLOW_DIST   = 2.20;  // 距目标此距离内进入减速曲线（1.80->2.20：直行结束前再提前 0.4m 刹车）
 static constexpr double GOAL_APPROACH_VX = 0.80;  // 接近段速度，横向已对齐时使用（0.55->0.80）
 static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
 
@@ -145,8 +145,8 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 // ★ 红卡遇到蓝锥时避让更狠（蓝卡不受影响）
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
-static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.80;  // 红卡见蓝锥时速率倍率（2.30->2.80）
-static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 2.30;  // 蓝卡见蓝锥时速率倍率（1.50->2.30）
+static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.30;  // 红卡见蓝锥时速率倍率（2.80->2.30：与蓝卡同向调低）
+static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 1.90;  // 蓝卡见蓝锥时速率倍率（2.30->1.90：避让过猛会甩到另一侧）
 // ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
 static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
