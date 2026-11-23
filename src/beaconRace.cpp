@@ -118,7 +118,7 @@ static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值�
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.06;  // 越过目标点此距离以上立即停车（0.10->0.06：更早兜住，防冲过头）
 
 // ★ 接近段速度分区 / 出据点加速
-static constexpr double GOAL_SLOW_DIST   = 1.80;  // 距目标此距离内进入减速曲线（1.40->1.80：提前 0.4m 刹车，防单次冲过头）
+static constexpr double GOAL_SLOW_DIST   = 2.20;  // 距目标此距离内进入减速曲线（1.80->2.20：多给 0.4m 收敛横向，落点更稳）
 static constexpr double GOAL_APPROACH_VX = 0.80;  // 接近段速度，横向已对齐时使用（0.55->0.80）
 static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
 
@@ -1018,6 +1018,9 @@ private:
                       + corridor_wz + avoid_wz;
             double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.57) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.3
             if (!cone_here && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
+            // ★ 巡线也要有航向保护：车头歪超过 LOST_YAW 就降速，
+            //   否则会出现「车头偏 73° 仍全速」的情况（一帧横移 0.74m，y 甩到 -1.49）。
+            if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
