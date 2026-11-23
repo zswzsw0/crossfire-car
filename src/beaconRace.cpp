@@ -118,14 +118,13 @@ static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值�
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.06;  // 越过目标点此距离以上立即停车（0.10->0.06：更早兜住，防冲过头）
 
 // ★ 接近段速度分区 / 出据点加速
-static constexpr double GOAL_SLOW_DIST   = 2.20;  // 距目标此距离内进入减速曲线（1.80->2.20：多给 0.4m 收敛横向，落点更稳）
+static constexpr double GOAL_SLOW_DIST   = 1.80;  // 距目标此距离内进入减速曲线（1.40->1.80：提前 0.4m 刹车，防单次冲过头）
 static constexpr double GOAL_APPROACH_VX = 0.80;  // 接近段速度，横向已对齐时使用（0.55->0.80）
 static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
 
 // ★ 红卡去据点更快（仅红卡，蓝卡保持 1.0）
 static constexpr double RED_BASE_APPROACH_GAIN = 1.40;  // 近距离比例增益与爬行下限的倍率
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
-static constexpr double BASE_FACE_TOL_RED = 0.95;  // 红卡专用：约 54°，减少在据点摆车身的原地转
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
 static constexpr double DEPART_VX  = 0.65;  // 该段速度下限(m/s，×1.3)
@@ -134,9 +133,9 @@ static constexpr double DEPART_VX  = 0.65;  // 该段速度下限(m/s，×1.3)
 //   蓝卡 0.18rad / 2.40m 实测正常；红卡同一设置会贴着中心线走、
 //   在 x≈3.4 撞到中间一排的中间锥，故红卡用更大的角度和更长的距离。
 static constexpr double LAUNCH_ALIGN_X_BLUE = 2.40;  // 蓝卡生效距离(m)
-static constexpr double LAUNCH_ALIGN_X_RED  = 2.40;  // 红卡生效距离(m)：与蓝卡一致
+static constexpr double LAUNCH_ALIGN_X_RED  = 2.80;  // 红卡生效距离(m)（3.60->2.80：向蓝卡靠拢）
 static constexpr double LAUNCH_ALIGN_ANGLE_BLUE = 0.18;  // 蓝卡偏转角(rad，约 10°)
-static constexpr double LAUNCH_ALIGN_ANGLE_RED  = 0.18;  // 红卡偏转角(rad，约 10°)：与蓝卡一致
+static constexpr double LAUNCH_ALIGN_ANGLE_RED  = 0.22;  // 红卡偏转角(rad，约 13°)（0.30->0.22：向蓝卡 0.18 靠拢，中间排避让已加强可补偿）
 
 // ★★★ 本次新增：避障限时 + 走廊约束（解决"撞锥桶"与"跑出场地"两个矛盾）★★★
 static constexpr int    AVOID_MAX_FRAMES = 45;    // 单次避让最多持续帧数，30fps 下约 1.5s
@@ -145,7 +144,7 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 // ★ 红卡遇到蓝锥时避让更狠（蓝卡不受影响）
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
-static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.30;  // 红卡见蓝锥时速率倍率：与蓝卡一致
+static constexpr double RED_BLUE_CONE_RATE_GAIN  = 2.80;  // 红卡见蓝锥时速率倍率（2.30->2.80）
 static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 2.30;  // 蓝卡见蓝锥时速率倍率（1.50->2.30）
 // ★ 中间一排锥桶区域：避让反应再快一点（用户反馈该段反应偏慢）
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
@@ -867,9 +866,7 @@ private:
         }
         if (face_x) {
             yaw_err = wrapPi(0.0 - yaw_);
-            // ★ 红卡在据点不必把车身摆得太正（蓝卡仍用 BASE_FACE_TOL）
-            const double face_tol = (card_color_ == "red") ? BASE_FACE_TOL_RED : BASE_FACE_TOL;
-            if (std::abs(yaw_err) > face_tol) {   // 放宽：到点后不必摆到精确 +x 就能出发
+            if (std::abs(yaw_err) > BASE_FACE_TOL) {   // 放宽：到点后不必摆到精确 +x 就能出发
                 send(0, clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max));
                 erro_ = yaw_err;
                 return false;
@@ -1021,9 +1018,6 @@ private:
                       + corridor_wz + avoid_wz;
             double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.57) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.3
             if (!cone_here && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
-            // ★ 巡线也要有航向保护：车头歪超过 LOST_YAW 就降速，
-            //   否则会出现「车头偏 73° 仍全速」的情况（一帧横移 0.74m，y 甩到 -1.49）。
-            if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
