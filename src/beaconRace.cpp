@@ -176,6 +176,13 @@ static constexpr double AVOID_YAW_RECOVER= 0.040; // 无障碍时每帧回正步
 static constexpr double CORRIDOR_HALF_W_BLUE = 0.45;  // 蓝卡：允许偏离直线半宽(米)，0.55 -> 0.45
 static constexpr double CORRIDOR_HALF_W_RED  = 0.55;  // 红卡：保持原值，不动
 static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角速度增益（红蓝共用，未改）
+// ★ 蓝卡第三排往中线修正（2026-11-23）：只调整该段的「有效目标 y」，不改终点。
+//   实测蓝卡在 x=5.25~5.78 一路外漂到 -1.306，擦到第三排最下侧蓝锥；
+//   走廊半宽/增益收到极限也压不住（外漂来自避让动作本身），故在该段把目标 y 往中线(+y)偏一点。
+static constexpr double THIRD_ROW_X0   = 5.00;  // 区间起点 x(m)
+static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
+static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
+static constexpr double THIRD_ROW_DY   = 0.15;  // 往中线(+y)的偏移量(m)
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -958,6 +965,12 @@ private:
     {
         avoiding_ = false;
         double dx = goal_x_ - x_, dy = goal_y_ - y_;
+        // ★ 蓝卡第三排往中线修正：该段把有效目标 y 往 +y（中线）偏一点，压住外漂。
+        //   两端用 THIRD_ROW_RAMP 线性过渡，避免目标点突跳造成抖动。只影响蓝卡。
+        if (card_color_ == "blue") {
+            const double w = clampd(std::min(x_ - THIRD_ROW_X0, THIRD_ROW_X1 - x_) / THIRD_ROW_RAMP, 0.0, 1.0);
+            if (w > 0.0) dy += THIRD_ROW_DY * w;
+        }
         double dist = std::hypot(dx, dy);
         double yaw_to_x = wrapPi(0.0 - yaw_);   // ★ 车头对准 +x 的误差（营地入口方向）
         // ★ 过冲保护：已经越过目标点 GOAL_OVERSHOOT_TOL 以上就立即停车。
