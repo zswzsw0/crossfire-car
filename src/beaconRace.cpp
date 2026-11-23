@@ -110,7 +110,7 @@ static constexpr double LOST_VX = 0.480;      // ×1.3：丢线兜底速度
 // ★ 终点入口收敛（按场地图：营地入口正对赛道，车应平着沿 +x 进入）
 //   速度再快 1.5 倍 → 收敛窗口与摆正时间同比例放大，否则会擦过目标点
 static constexpr double ENTRY_ALIGN_DIST  = 1.80;  // 距终点多远开始混入航向收敛(m)，原 1.20
-static constexpr double ENTRY_ALIGN_W     = 1.00;  // 航向收敛的最大权重(0~1)，0.85 -> 1.00：进营地时车头彻底摆正（2026-11-23）
+static constexpr double ENTRY_ALIGN_W     = 0.90;  // 航向收敛的最大权重(0~1)，1.00 -> 0.90：1.00 时末段摆头太久（16s）
 static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航向的最长时间(s)，原 4.0
 
 // ★ 终点入口的两个安全门（2026-11-22 冲出场地事故后新增）
@@ -185,7 +185,10 @@ static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避�
 static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
 static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
 // ★ 第三排是否关闭锥桶避让（见 navGoal 内的说明）：true=关，只用位置控制
+//   关闭区间单独一个起点（4.30），比「往中线偏移」的起点（5.00）更早：
+//   实测外漂真正发生在 x=4.4~5.2，必须在漂起来之前就关掉避让。
 static constexpr bool   THIRD_ROW_NO_AVOID = true;
+static constexpr double THIRD_ROW_NOAVOID_X0 = 4.30;  // 关避让区间起点 x(m)，5.00 -> 4.30
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -1044,7 +1047,7 @@ private:
         // ★ 第三排：关闭锥桶避让，只用位置控制把车摆向营地入口（2026-11-23）
         //   该段距终点已 < near_goal_dist，本来就走位置控制分支（不读巡线），
         //   外漂来自避让动作本身，故这里直接把避让关掉。改 THIRD_ROW_NO_AVOID=false 可退回。
-        const bool third_row_seg = (x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1);
+        const bool third_row_seg = (x_ > THIRD_ROW_NOAVOID_X0 && x_ < THIRD_ROW_X1);
         const bool cone_here = !(THIRD_ROW_NO_AVOID && third_row_seg)
                             && ((avoid_red != nullptr) || (avoid_blue != nullptr));
         // ★ 避让优先于走廊（2026-11-23）：有锥要避时蓝卡把走廊回正削掉一半。
