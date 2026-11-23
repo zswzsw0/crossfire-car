@@ -163,7 +163,7 @@ static constexpr double MIDROW_RATE_GAIN = 1.30;  // 该区间避让速率倍率
 //   降到 1.15 m/s 后每帧 0.16m，同样 3 帧只需 0.49m，感知压力明显下降。
 static constexpr double MINEFIELD_X0 = 1.80;  // 雷区起点 x
 static constexpr double MINEFIELD_X1 = 5.20;  // 雷区终点 x
-static constexpr double MINEFIELD_VX_MAX = 1.15;  // 该区间巡线速度上限
+static constexpr double MINEFIELD_VX_MAX = 1.00;  // 该区间巡线速度上限（1.15 -> 1.00：提前刹车，多留避让反应距离）
 // ★ 中段丢线提速（红蓝两卡同样处理）：中段航向误差常达 30~50°，丢线时只能走
 //   LOST_VX，中段因此被拖慢。仅在 x 落在该区间内把丢线速度提高，
 //   直线全速（vel_x_vision）本身不变。
