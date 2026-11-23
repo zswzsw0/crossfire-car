@@ -118,7 +118,8 @@ static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值�
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.06;  // 越过目标点此距离以上立即停车（0.10->0.06：更早兜住，防冲过头）
 
 // ★ 接近段速度分区 / 出据点加速
-static constexpr double GOAL_SLOW_DIST   = 2.20;  // 距目标此距离内进入减速曲线（1.80->2.20：直行结束前再提前 0.4m 刹车）
+static constexpr double GOAL_SLOW_DIST   = 2.20;  // 蓝卡：距目标此距离内进入减速曲线
+static constexpr double GOAL_SLOW_DIST_RED = 2.60;  // 红卡：刹车更早（2.20->2.60，仅红卡）
 static constexpr double GOAL_APPROACH_VX = 0.80;  // 接近段速度，横向已对齐时使用（0.55->0.80）
 static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
 
@@ -145,7 +146,7 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 // ★ 红卡遇到蓝锥时避让更狠（蓝卡不受影响）
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
-static constexpr double RED_BLUE_CONE_RATE_GAIN  = 1.85;  // 红卡见蓝锥时速率倍率（2.30->1.85：再降低避让幅度）
+static constexpr double RED_BLUE_CONE_RATE_GAIN  = 1.55;  // 红卡见蓝锥时速率倍率（1.85->1.55：红卡单独再降低，蓝卡不变）
 static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 1.55;  // 蓝卡见蓝锥时速率倍率（1.90->1.55：再降低避让幅度）
 // ★ 传感器看门狗：底盘数据中断时程序仍会「盲发」速度（2026-11-23 实测车径直冲出场地）。
 //   连续这么久收不到新的底盘帧、且仍在下发运动指令 → 立即发零速并停止本次导航。
@@ -1051,8 +1052,10 @@ private:
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
+            //    红卡用更早的刹车点（GOAL_SLOW_DIST_RED），蓝卡保持原值。
+            const double slow_dist = (card_color_ == "red") ? GOAL_SLOW_DIST_RED : GOAL_SLOW_DIST;
             double vx;
-            if (dist > GOAL_SLOW_DIST) {
+            if (dist > slow_dist) {
                 // 接近段：按接近速度跑；横向未对齐时压到 NEAR_VX_MAX 先收敛。
                 vx = GOAL_APPROACH_VX;
                 if (std::abs(dy) > GOAL_LAT_GATE) vx = std::min(vx, NEAR_VX_MAX);
