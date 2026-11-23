@@ -110,7 +110,7 @@ static constexpr double LOST_VX = 0.480;      // ×1.3：丢线兜底速度
 // ★ 终点入口收敛（按场地图：营地入口正对赛道，车应平着沿 +x 进入）
 //   速度再快 1.5 倍 → 收敛窗口与摆正时间同比例放大，否则会擦过目标点
 static constexpr double ENTRY_ALIGN_DIST  = 1.80;  // 距终点多远开始混入航向收敛(m)，原 1.20
-static constexpr double ENTRY_ALIGN_W     = 0.85;  // 航向收敛的最大权重(0~1)，原 0.75
+static constexpr double ENTRY_ALIGN_W     = 1.00;  // 航向收敛的最大权重(0~1)，0.85 -> 1.00：进营地时车头彻底摆正（2026-11-23）
 static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航向的最长时间(s)，原 4.0
 
 // ★ 终点入口的两个安全门（2026-11-22 冲出场地事故后新增）
