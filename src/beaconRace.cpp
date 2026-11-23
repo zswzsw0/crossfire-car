@@ -124,7 +124,7 @@ static constexpr double GOAL_APPROACH_VX = 0.80;  // 接近段速度，横向已
 static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
 
 // ★ 红卡去据点更快（仅红卡，蓝卡保持 1.0）
-static constexpr double RED_BASE_APPROACH_GAIN = 1.40;  // 近距离比例增益与爬行下限的倍率
+static constexpr double RED_BASE_APPROACH_GAIN = 1.00;  // 红卡去据点的速度倍率（1.40->1.00：减少冲过据点目标的距离，与蓝卡一致）
 static constexpr double RED_BASE_WZ_MAX = 0.75;  // 红卡在据点的转向角速度上限(rad/s)，防止转过头
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
