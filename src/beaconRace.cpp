@@ -114,7 +114,10 @@ static constexpr double ENTRY_ALIGN_W     = 0.85;  // 航向收敛的最大权�
 static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航向的最长时间(s)，原 4.0
 
 // ★ 终点入口的两个安全门（2026-11-22 冲出场地事故后新增）
-static constexpr double ENTRY_ALIGN_MAX_DY = 0.30;  // 横向偏差超过此值就禁用入口摆平，继续指向目标
+static constexpr double ENTRY_ALIGN_MAX_DY = 0.12;  // 横向偏差超过此值就禁用入口摆平，继续指向目标
+// ★ 0.30 -> 0.12（2026-11-23）：红卡实测 |dy|=0.28 时刚好在 0.30 门限内，
+//   车头被摆成平推 +x，沿 y=1.17 一路平推过去，x 冲到 7.016 触发过冲急停（误差 0.285m）。
+//   收紧到 0.12 后只有真正对齐的才摆平，偏得多就继续指向目标、先把 y 拉回来。
 static constexpr double GOAL_OVERSHOOT_TOL  = 0.06;  // 越过目标点此距离以上立即停车（0.10->0.06：更早兜住，防冲过头）
 
 // ★ 接近段速度分区 / 出据点加速
