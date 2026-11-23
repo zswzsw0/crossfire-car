@@ -1,0 +1,12 @@
+run      : 2026-11-23_192937_blue_DONE_64s
+saved    : 2026-11-23 19:29:39
+source   : root@192.168.1.3:/home/root/run_logs/br_run.log
+binary   : md5 347b3c9e7c00469091bcf8557ea2001d
+card     : blue
+result   : DONE
+seconds  : 64
+nav_goal : 13 lines, 1 in-place spins
+max_vx   : 1.42584
+final    : 
+error    : 
+note     : watcher run in report D:\穿越火线\run_report.log
