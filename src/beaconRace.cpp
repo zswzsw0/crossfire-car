@@ -151,6 +151,12 @@ static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 2.30;  // 蓝卡见蓝锥时�
 static constexpr double MIDROW_X0 = 2.40;  // 区域起点 x
 static constexpr double MIDROW_X1 = 4.20;  // 区域终点 x
 static constexpr double MIDROW_RATE_GAIN = 1.30;  // 该区间避让速率倍率
+// ★ 雷区限速：锥桶最密的这段主动降速，换取足够的避让反应距离。
+//   1.43 m/s 时每帧前进 0.20m，从看见锥到转够角度约需 3 帧 ≈ 0.60m；
+//   降到 1.15 m/s 后每帧 0.16m，同样 3 帧只需 0.49m，感知压力明显下降。
+static constexpr double MINEFIELD_X0 = 1.80;  // 雷区起点 x
+static constexpr double MINEFIELD_X1 = 5.20;  // 雷区终点 x
+static constexpr double MINEFIELD_VX_MAX = 1.15;  // 该区间巡线速度上限
 // ★ 中段丢线提速（红蓝两卡同样处理）：中段航向误差常达 30~50°，丢线时只能走
 //   LOST_VX，中段因此被拖慢。仅在 x 落在该区间内把丢线速度提高，
 //   直线全速（vel_x_vision）本身不变。
@@ -1026,6 +1032,10 @@ private:
                       + corridor_wz + avoid_wz;
             double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.57) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.3
             if (!cone_here && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
+            // ★ 雷区限速：锥桶密集段的巡航速度压到 MINEFIELD_VX_MAX，
+            //   换取避让反应距离（实测 1.43 m/s 下仍会撞到 1 个蓝锥）。
+            if (x_ > MINEFIELD_X0 && x_ < MINEFIELD_X1)
+                vx = std::min(vx, MINEFIELD_VX_MAX);
             // ★ 巡线也要有航向保护：车头歪超过 LOST_YAW 就降速，避免「歪着全速冲」。
             //   实测：航向 -47.5° 时仍走 0.570，一帧横移 0.80m，y 一路冲到 -1.624。
             if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
