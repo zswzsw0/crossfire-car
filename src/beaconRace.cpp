@@ -547,8 +547,10 @@ public:
             else stream.push(mask_b);
 
             auto now = std::chrono::steady_clock::now();
+            ++fps_frames_;                       // ★ 帧率统计
             if (now - last_log > std::chrono::seconds(1)) {
                 last_log = now;
+                uint64_t seq_now = g_sensorFrames.load(std::memory_order_acquire);
                 std::cout << phaseName(phase_)
                           << " card=" << (card_color_.empty() ? "-" : card_color_)
                           << " pose=(" << x_ << "," << y_ << ")"
@@ -556,7 +558,11 @@ public:
                           << " vx=" << cmd_vx_ << " wz=" << cmd_wz_
                           << " err=" << erro_
                           << " odom=" << (have_odom_ ? "ok" : "wait")
+                          << " fps=" << fps_frames_               // 视觉控制环帧率
+                          << " sf=" << (seq_now - fps_last_seq_)  // 底盘数据帧率
                           << " " << card_label_ << "\n";
+                fps_frames_ = 0;
+                fps_last_seq_ = seq_now;
             }
         }
         sendStop();
@@ -619,6 +625,8 @@ private:
     //   车离开据点后径直向外全速冲出场地，且 kill 掉进程后底盘保持最后的指令继续跑。
     //   这里在「仍在命令运动」且「数据帧超过 SENSOR_WATCHDOG_SEC 没更新」时立即停。
     // ★ 单次直行距离计数（成员变量）
+    int fps_frames_ = 0;              // ★ 帧率统计：本秒内处理的帧数
+    uint64_t fps_last_seq_ = 0;      // ★ 帧率统计：上秒的底盘帧号
     double straight_dist_ = 0.0;
     std::chrono::steady_clock::time_point straight_tp_ = std::chrono::steady_clock::now();
     uint64_t wd_seq_ = 0;
