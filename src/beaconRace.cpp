@@ -125,6 +125,7 @@ static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则
 // ★ 红卡去据点更快（仅红卡，蓝卡保持 1.0）
 static constexpr double RED_BASE_APPROACH_GAIN = 1.40;  // 近距离比例增益与爬行下限的倍率
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
+static constexpr double BASE_FACE_TOL_RED = 0.95;  // 红卡专用：约 54°，减少在据点摆车身的原地转
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
 static constexpr double DEPART_VX  = 0.65;  // 该段速度下限(m/s，×1.3)
@@ -866,7 +867,9 @@ private:
         }
         if (face_x) {
             yaw_err = wrapPi(0.0 - yaw_);
-            if (std::abs(yaw_err) > BASE_FACE_TOL) {   // 放宽：到点后不必摆到精确 +x 就能出发
+            // ★ 红卡在据点不必把车身摆得太正（蓝卡仍用 BASE_FACE_TOL）
+            const double face_tol = (card_color_ == "red") ? BASE_FACE_TOL_RED : BASE_FACE_TOL;
+            if (std::abs(yaw_err) > face_tol) {   // 放宽：到点后不必摆到精确 +x 就能出发
                 send(0, clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max));
                 erro_ = yaw_err;
                 return false;
