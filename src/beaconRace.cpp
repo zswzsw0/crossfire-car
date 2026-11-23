@@ -110,7 +110,7 @@ static constexpr double LOST_VX = 0.480;      // ×1.3：丢线兜底速度
 // ★ 终点入口收敛（按场地图：营地入口正对赛道，车应平着沿 +x 进入）
 //   速度再快 1.5 倍 → 收敛窗口与摆正时间同比例放大，否则会擦过目标点
 static constexpr double ENTRY_ALIGN_DIST  = 1.80;  // 距终点多远开始混入航向收敛(m)，原 1.20
-static constexpr double ENTRY_ALIGN_W     = 0.90;  // 航向收敛的最大权重(0~1)，1.00 -> 0.90：1.00 时末段摆头太久（16s）
+static constexpr double ENTRY_ALIGN_W     = 0.85;  // 航向收敛的最大权重(0~1)，原 0.75
 static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航向的最长时间(s)，原 4.0
 
 // ★ 终点入口的两个安全门（2026-11-22 冲出场地事故后新增）
@@ -184,13 +184,6 @@ static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
 static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
 static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
-// ★ 第三排是否关闭锥桶避让（见 navGoal 内的说明）：true=关，只用位置控制
-//   关闭区间单独一个起点（4.30），比「往中线偏移」的起点（5.00）更早：
-//   实测外漂真正发生在 x=4.4~5.2，必须在漂起来之前就关掉避让。
-static constexpr bool   THIRD_ROW_NO_AVOID = false;  // false = 第三排照常识别并避让锥桶（2026-11-23 回退：关掉后路径内收到 -0.80，内收过头）
-static constexpr double THIRD_ROW_NOAVOID_X0 = 4.30;  // 关避让区间起点 x(m)，5.00 -> 4.30
-// ★ 第三排最外侧蓝锥的向内偏转增益：起转速率再乘这个倍数
-static constexpr double THIRD_ROW_INNER_GAIN = 2.0;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -1046,27 +1039,13 @@ private:
             corridor_wz = -std::copysign(CORRIDOR_GAIN * over, cross);
 
         // ★ 避让：方向由赛道路线决定（红卡→左，蓝卡→右），航向偏置有界（≤AVOID_YAW_MAX），不会绕圈
-        // ★ 第三排：关闭锥桶避让，只用位置控制把车摆向营地入口（2026-11-23）
-        //   该段距终点已 < near_goal_dist，本来就走位置控制分支（不读巡线），
-        //   外漂来自避让动作本身，故这里直接把避让关掉。改 THIRD_ROW_NO_AVOID=false 可退回。
-        const bool third_row_seg = (x_ > THIRD_ROW_NOAVOID_X0 && x_ < THIRD_ROW_X1);
-        const bool cone_here = !(THIRD_ROW_NO_AVOID && third_row_seg)
-                            && ((avoid_red != nullptr) || (avoid_blue != nullptr));
+        const bool cone_here = (avoid_red != nullptr) || (avoid_blue != nullptr);
         // ★ 避让优先于走廊（2026-11-23）：有锥要避时蓝卡把走廊回正削掉一半。
         //   完全清零会让车在避让期间毫无约束（实测 x=5.25->5.70 从 -1.188 漂到 -1.306，
         //   擦到第三排最下侧蓝锥）；完全相加又会抵消避让（更早实测撞中间一列锥）。
         //   取一半：避让仍占优，同时保留一半回正压住外漂。仅蓝卡生效，红卡不变。
         if (cone_here && card_color_ == "blue") corridor_wz *= 0.5;
-        double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
-        // ★ 第三排最外侧蓝锥：改为向中线偏转，并加大幅度（2026-11-23）
-        //   默认蓝卡往 -y（外侧）让、红卡往 +y（外侧）让；第三排最外侧那个蓝锥就在外侧，
-        //   继续往外让等于朝锥转，所以这里反过来朝中线让，并把起转速率乘上增益。
-        if (third_row_seg && avoid_blue != nullptr) {
-            const double ref_x    = track ? track->mid_x : CENTER_X;
-            const bool   is_outer = (card_color_ == "blue") ? (avoid_blue->cx > ref_x)
-                                                            : (avoid_blue->cx < ref_x);
-            if (is_outer) off_dir = (card_color_ == "blue") ? 1.0 : -1.0;   // 朝中线
-        }
+        const double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
         if (cone_here) {
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
             double area  = avoid_red ? avoid_red->area : avoid_blue->area;
@@ -1077,13 +1056,6 @@ private:
                 rate *= (card_color_ == "red") ? RED_BLUE_CONE_RATE_GAIN : BLUE_BLUE_CONE_RATE_GAIN;
             }
             if (x_ > MIDROW_X0 && x_ < MIDROW_X1) rate *= MIDROW_RATE_GAIN;   // 中间排区域反应更快
-            // ★ 第三排最外侧蓝锥：往中线让的同时把起转速率放大（THIRD_ROW_INNER_GAIN）
-            if (third_row_seg && avoid_blue != nullptr) {
-                const double ref_x    = track ? track->mid_x : CENTER_X;
-                const bool   is_outer = (card_color_ == "blue") ? (avoid_blue->cx > ref_x)
-                                                                : (avoid_blue->cx < ref_x);
-                if (is_outer) rate *= THIRD_ROW_INNER_GAIN;
-            }
             if (area > max_a * 0.6) avoid_yaw_ = off_dir * AVOID_YAW_MAX;
             avoid_yaw_ += off_dir * rate;
             ++avoid_frames_;
@@ -1092,8 +1064,7 @@ private:
             avoid_side_  = (off_dir > 0.0) ? "LEFT" : "RIGHT";
         } else {
             avoid_frames_ = 0;
-            // 第三排区间：立即清零偏置（否则要十几帧才衰减完，等于还在让）
-            if ((THIRD_ROW_NO_AVOID && third_row_seg) || std::abs(avoid_yaw_) <= AVOID_YAW_RECOVER) avoid_yaw_ = 0;
+            if (std::abs(avoid_yaw_) <= AVOID_YAW_RECOVER) avoid_yaw_ = 0;
             else avoid_yaw_ -= std::copysign(AVOID_YAW_RECOVER, avoid_yaw_);
         }
         avoid_yaw_ = clampd(avoid_yaw_, -AVOID_YAW_MAX, AVOID_YAW_MAX);
