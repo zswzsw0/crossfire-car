@@ -161,6 +161,7 @@ static constexpr double MIDROW_RATE_GAIN = 1.30;  // 该区间避让速率倍率
 static constexpr double MINEFIELD_X0 = 1.80;  // 雷区起点 x
 static constexpr double MINEFIELD_X1 = 5.20;  // 雷区终点 x
 static constexpr double MINEFIELD_VX_MAX = 1.15;  // 该区间巡线速度上限
+static constexpr double BLUE_MINEFIELD_CORRIDOR_W = 0.30;  // 蓝卡雷区走廊半宽（0.55->0.30：更早纠偏，缩短单次直行距离）
 // ★ 中段丢线提速（红蓝两卡同样处理）：中段航向误差常达 30~50°，丢线时只能走
 //   LOST_VX，中段因此被拖慢。仅在 x 落在该区间内把丢线速度提高，
 //   直线全速（vel_x_vision）本身不变。
@@ -1011,7 +1012,12 @@ private:
         ux /= un; uy /= un;
         double cross = -(x_ - base_x_) * uy + (y_ - base_y_) * ux;
         double corridor_wz = 0.0;
-        double over = std::abs(cross) - CORRIDOR_HALF_W;
+        // ★ 蓝卡在雷区：收紧走廊半宽 → 更早开始纠偏，
+        //   避免「一口气直行很长一段」把横向误差累积到收不回来。
+        double cor_half_w = CORRIDOR_HALF_W;
+        if (card_color_ == "blue" && x_ > MINEFIELD_X0 && x_ < MINEFIELD_X1)
+            cor_half_w = BLUE_MINEFIELD_CORRIDOR_W;
+        double over = std::abs(cross) - cor_half_w;
         if (over > 0)
             corridor_wz = -std::copysign(CORRIDOR_GAIN * over, cross);
 
