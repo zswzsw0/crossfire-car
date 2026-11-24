@@ -115,6 +115,10 @@ static constexpr double GOAL_ALIGN_MAX_SEC= 6.0;   // 到点后原地摆正航�
 
 // ★ 终点入口的两个安全门（2026-11-22 冲出场地事故后新增）
 static constexpr double ENTRY_ALIGN_MAX_DY = 0.12;  // 横向偏差超过此值就禁用入口摆平，继续指向目标
+// ★ 蓝卡单独放宽（2026-11-24）：实测蓝卡进营地时总是偏左，且最后仍向左拐——
+//   横向差超过 12cm 时摆平被禁用，车头继续指向目标点，一路左拐进去。
+//   蓝卡放宽到 0.18（只加少量），红卡保持 0.12 不受影响。
+static constexpr double ENTRY_ALIGN_MAX_DY_BLUE = 0.18;
 // ★ 0.30 -> 0.12（2026-11-23）：红卡实测 |dy|=0.28 时刚好在 0.30 门限内，
 //   车头被摆成平推 +x，沿 y=1.17 一路平推过去，x 冲到 7.016 触发过冲急停（误差 0.285m）。
 //   收紧到 0.12 后只有真正对齐的才摆平，偏得多就继续指向目标、先把 y 拉回来。
@@ -1074,7 +1078,7 @@ private:
             //   但只在横向已经基本对齐时启用——横向还差得远就摆平车头，会让车
             //   沿 +x 直冲、永远追不上 y（2026-11-22 实测冲出场地到 x=9.245 的根因）。
             double k = 0.0;
-            if (std::abs(dy) < ENTRY_ALIGN_MAX_DY) {
+            if (std::abs(dy) < ((card_color_ == "blue") ? ENTRY_ALIGN_MAX_DY_BLUE : ENTRY_ALIGN_MAX_DY)) {
                 k = clampd(1.0 - dist / ENTRY_ALIGN_DIST, 0.0, 1.0) * ENTRY_ALIGN_W;
             }
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
