@@ -154,7 +154,7 @@ static constexpr double AVOID_YAW_RATE   = 0.135; // 每帧向偏置角靠近的
 //   注意：avoid_wz = avoid_yaw*2 被 vel_z_max 截断，AVOID_YAW_MAX 早已饱和，
 //   所以提高"偏转力度"只能靠加快起转速率。
 static constexpr double RED_BLUE_CONE_RATE_GAIN  = 3.50;  // 红卡见蓝锥时速率倍率（2.30->3.50：提高红卡对蓝锥的避让幅度）
-static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 3.50;  // 蓝卡见蓝锥时速率倍率（2.30->3.50：实测撞内侧多个锥，起转不够快）
+static constexpr double BLUE_BLUE_CONE_RATE_GAIN = 3.85;  // 蓝卡见蓝锥时速率倍率（3.50 -> 3.85：偏转幅度 +10%）（红卡不变）
 // ★ 传感器看门狗：底盘数据中断时程序仍会「盲发」速度（2026-11-23 实测车径直冲出场地）。
 //   连续这么久收不到新的底盘帧、且仍在下发运动指令 → 立即发零速并停止本次导航。
 static constexpr double SENSOR_WATCHDOG_SEC = 0.60;
