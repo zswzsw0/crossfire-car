@@ -136,7 +136,7 @@ static constexpr double RED_BASE_WZ_MAX = 1.10;  // 红卡在据点的转向角�
 // ★ 红卡在第三排遇蓝锥的判定带宽额外放宽(px)：更早起转（2026-11-24 实测撞第三排从左数第二个锥）
 static constexpr double RED_THIRD_ROW_EXTRA_PX = 28.0;  // 18->28：第三排蓝锥再提前识别一点
 // ★ 蓝卡在第三排遇蓝锥的判定带宽额外放宽(px)：提前一点识别（2026-11-24）
-static constexpr double BLUE_THIRD_ROW_EXTRA_PX = 30.0;  // 20 -> 30：蓝卡再提前识别一点
+static constexpr double BLUE_THIRD_ROW_EXTRA_PX = 36.0;  // 30 -> 36：再提前一点点
 // ★ 出界保护阈值(m)：|y| 超过它就禁止继续往外避让/强制回场
 //   场地总宽 4m → y∈[-2,+2]；正常路线第三排峰值约 -1.28，故设 1.32：
 //   比正常路径略靠外，但只要再多偏一点就立刻干预（留出里程计误差的余量）。
