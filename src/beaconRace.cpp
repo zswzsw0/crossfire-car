@@ -195,6 +195,8 @@ static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
 // ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
 static constexpr double CAMP_SPEED_GAIN     = 1.25;
+// ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
+static constexpr double CAMP_LAT_DEADBAND   = 0.12;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -1131,10 +1133,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
             const bool camp_mode = updateCampMode();
             if (card_color_ == "blue" && camp_mode) {
-                // ★ 蓝卡进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：直接朝营地中心点开，
-                //   而不是锁死 +x。实测锁 +x 会把进入时的横向偏差一路带到底、停在偏左位置，
-                //   所以这里改用 yaw_err（指向 (goal_x, goal_y) 营地中心轴），同时提速。
-                yaw_cmd = yaw_err;
+                // ★ 蓝卡进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：
+                //   横向偏差大 → 朝营地中心轴 (goal_x, goal_y) 开；
+                //   已经到中心线附近（|dy| < CAMP_LAT_DEADBAND）→ 只保持 +x 直行。
+                //   2026-11-24 实测：不加死区会从 -1.25 一路纠到 -0.81（冲到地图中间方向）。
+                yaw_cmd = (std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
             }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
