@@ -986,11 +986,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         erro_ = wz;
     }
 
-    // ★ 蓝卡进营地模式：x 首次超过第三排末端后开始计时，满 CAMP_MODE_DELAY_SEC 置位
-    //   （0.3s 的延后是按要求加的，避免刚出雷区就立刻锁死航向）
+    // ★ 进营地模式（红蓝共用，2026-11-24）：x 首次超过第三排末端后开始计时，
+    //   满 CAMP_MODE_DELAY_SEC 置位。（0.3s 的延后是按要求加的，避免刚出雷区就立刻锁死航向）
     bool updateCampMode()
     {
-        if (card_color_ != "blue") return false;
         if (!camp_timer_started_ && x_ > THIRD_ROW_X1) {
             camp_timer_started_ = true;
             camp_t0_ = std::chrono::steady_clock::now();
@@ -1132,8 +1131,8 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             }
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
             const bool camp_mode = updateCampMode();
-            if (card_color_ == "blue" && camp_mode) {
-                // ★ 蓝卡进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：
+            if (camp_mode) {
+                // ★ 进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：
                 //   横向偏差大 → 朝营地中心轴 (goal_x, goal_y) 开；
                 //   已经到中心线附近（|dy| < CAMP_LAT_DEADBAND）→ 只保持 +x 直行。
                 //   2026-11-24 实测：不加死区会从 -1.25 一路纠到 -0.81（冲到地图中间方向）。
@@ -1154,7 +1153,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 // 营地内：完全保持原减速曲线
                 vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);
             }
-            if (card_color_ == "blue" && camp_mode) vx *= CAMP_SPEED_GAIN;   // 营地内提速 1.25x
+            if (camp_mode) vx *= CAMP_SPEED_GAIN;   // 营地内提速 1.25x
             send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = yaw_cmd;
             return false;
