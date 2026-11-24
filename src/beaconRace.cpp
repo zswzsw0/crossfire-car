@@ -946,9 +946,15 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             double thr = CONE_PATH_HALF_W + 90.0 * (b.cy / static_cast<double>(IMG_H));
             // ★ 第三排遇蓝锥：判定带宽放宽 → 提前识别、提前起转（2026-11-24）
             //   红卡 28px（实测撞第三排从左数第二个锥）；蓝卡 20px（提前一点识别）。
-            if (is_blue_cone && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
-                if (card_color_ == "red")       thr += RED_THIRD_ROW_EXTRA_PX;
-                else if (card_color_ == "blue") thr += BLUE_THIRD_ROW_EXTRA_PX;
+            // ★ 蓝锥提前识别（2026-11-24 扩展）：
+            //   红卡从第二排起点(2.75)之后就一直提前识别，覆盖「中间那排」和「第三排」；
+            //   蓝卡仍只在第三排区间。
+            if (is_blue_cone) {
+                if (card_color_ == "red" && x_ > RED_ROW2_X0) {
+                    thr += RED_THIRD_ROW_EXTRA_PX;
+                } else if (card_color_ == "blue" && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
+                    thr += BLUE_THIRD_ROW_EXTRA_PX;
+                }
             }
             if (std::abs(b.cx - ref) <= thr) on.push_back(b);
         }
