@@ -200,8 +200,6 @@ static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏�
 static constexpr double RED_ROW2_X0   = 2.75;  // 第二排区间起点 x(m)，2.90 -> 2.75：再提前一点转向
 static constexpr double RED_ROW2_X1   = 4.30;  // 第二排区间终点 x(m)
 static constexpr double RED_ROW2_RAMP = 0.30;  // 两端过渡距离(m)
-static constexpr double BLUE_ROW2_X0  = 2.90;  // 蓝卡第二排区间起点，比红卡略晚一点
-static constexpr double BLUE_ROW2_DY  = 0.15;  // 蓝卡第二排往 -y（它那侧外侧）偏(m)
 static constexpr double RED_ROW2_DY   = 0.36;  // 往 +y（红卡那侧边界）偏移(m)，0.30 -> 0.36：再加大一点点
 // ★ 第三排遇蓝锥朝中线时，起转速率再乘这个倍数（1.0=不额外放大）
 static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
@@ -1058,11 +1056,6 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             if (w > 0.0) {
                 dy += (card_color_ == "blue") ? (THIRD_ROW_DY_BLUE * w) : (-THIRD_ROW_DY_RED * w);
             }
-        }
-        // ★ 蓝卡第二排：提前一点往 -y（它那侧外侧）偏
-        if (card_color_ == "blue") {
-            const double wb = clampd(std::min(x_ - BLUE_ROW2_X0, RED_ROW2_X1 - x_) / RED_ROW2_RAMP, 0.0, 1.0);
-            if (wb > 0.0) dy -= BLUE_ROW2_DY * wb;
         }
         // ★ 红卡第二排：往该走的那侧边界(+y)偏（2026-11-24 要求，蓝卡不受影响）
         if (card_color_ == "red") {
