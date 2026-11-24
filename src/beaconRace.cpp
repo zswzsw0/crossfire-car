@@ -134,7 +134,7 @@ static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则
 static constexpr double RED_BASE_APPROACH_GAIN = 1.00;  // 红卡去据点的速度倍率（1.40->1.00：减少冲过据点目标的距离，与蓝卡一致）
 static constexpr double RED_BASE_WZ_MAX = 1.10;  // 红卡在据点的转向角速度上限(rad/s)（0.75->1.10：实测转向幅度不足，转不到位）
 // ★ 红卡在第三排遇蓝锥的判定带宽额外放宽(px)：更早起转（2026-11-24 实测撞第三排从左数第二个锥）
-static constexpr double RED_THIRD_ROW_EXTRA_PX = 25.0;
+static constexpr double RED_THIRD_ROW_EXTRA_PX = 18.0;  // 25->18：稍微延后一点点，但仍早于 v2.1（=0）
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
