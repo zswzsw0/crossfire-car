@@ -1,0 +1,62 @@
+已读取配置 /home/root/beacon_race.cfg (42 项)
+已读取配置 beacon_race.cfg (42 项)
+Open serial port success: /dev/ttyUSB0, baudrate: 115200
+摄像头实际参数: 320 x 240 @ 30.00 fps
+FOURCC: MJPG
+realDelayMs: 33.3 ms
+ImgStream: listening on port 9999
+beaconRace 启动 | WAIT_CARD | drive=on force=off gyro_yaw=on
+蓝卡 A(1,0.98) -> (6.9,-1.08)
+红卡 B(1,-0.98) -> (6.9,0.89)
+按键: f改HSV q保存 l重载 x停车/恢复 v切换画面 c退出
+ImgStream: client 192.168.1.21
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- RED
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- RED
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- RED
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- RED
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- RED
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- RED
+
+CARD=red base(1,-0.98) goal(6.9,0.89) gyro_bias=0.212384 rad/s n=113
+NAV_BASE card=red pose=(0.00319258,0.00249708) yaw=-13.7783deg vx=1.67954 wz=-0.75 err=-0.537692 odom=ok av=- 
+NAV_BASE card=red pose=(0.876887,-0.719985) yaw=-59.3803deg vx=0.345226 wz=-0.156743 err=-0.0922016 odom=ok av=- 
+NAV_BASE card=red pose=(0.971053,-0.909175) yaw=-46.3825deg vx=0 wz=1.17 err=0.809528 odom=ok av=- 
+
+到达据点，停车 1 秒
+WAIT_BASE card=red pose=(0.969759,-0.906621) yaw=-16.2051deg vx=0 wz=0 err=0 odom=ok av=- 
+
+离开据点，前往终点
+NAV_GOAL card=red pose=(1.22622,-0.935682) yaw=6.04765deg vx=0.65 wz=0.723794 err=0.425761 odom=ok av=- 
+NAV_GOAL card=red pose=(1.86776,-0.65561) yaw=31.0988deg vx=0.65 wz=-0.0421283 err=-0.0247814 odom=ok av=- 
+NAV_GOAL card=red pose=(2.49045,-0.289044) yaw=29.0092deg vx=0.624 wz=-0.0425569 err=-0.0250334 odom=ok av=- 
+NAV_GOAL card=red pose=(3.08185,0.0224132) yaw=22.4775deg vx=0.624 wz=-0.287085 err=-0.168873 odom=ok av=- 
+NAV_GOAL card=red pose=(3.6011,0.270221) yaw=50.8208deg vx=0.57 wz=1.14952 err=-0.403125 odom=ok av=OUT 
+NAV_GOAL card=red pose=(3.71751,0.582825) yaw=53.2174deg vx=1 wz=-0.404648 err=0.104688 odom=ok av=- 
+NAV_GOAL card=red pose=(4.3251,1.12798) yaw=32.7109deg vx=0.43 wz=-1.17 err=-0.663074 odom=ok av=- 
+NAV_GOAL card=red pose=(4.75431,1.13649) yaw=-18.8715deg vx=0.43 wz=-0.234367 err=0.214997 odom=ok av=- 
+NAV_GOAL card=red pose=(5.20146,1.00143) yaw=7.88756deg vx=0.43 wz=0.423943 err=-0.30065 odom=ok av=- 
+NAV_GOAL card=red pose=(5.65953,1.12054) yaw=4.70038deg vx=0.43 wz=-0.587961 err=-0.451622 odom=ok av=- 
+NAV_GOAL card=red pose=(6.1301,1.03849) yaw=-22.7094deg vx=0.43 wz=0.0612564 err=0.0360332 odom=ok av=- 
+NAV_GOAL card=red pose=(6.56953,0.902214) yaw=5.94335deg vx=0.372035 wz=0.94443 err=-0.115041 odom=ok av=- 
+NAV_GOAL card=red pose=(6.82849,1.02202) yaw=27.805deg vx=0.168916 wz=-1.17 err=-1.55965 odom=ok av=- 
+
+OVERSHOOT 越过目标 (x=6.96426 goal=6.9) 立即停车
+
+到达终点，停车
+DONE card=red pose=(6.98963,1.02272) yaw=-31.5503deg vx=0 wz=0 err=0 odom=ok av=- 
+DONE card=red pose=(6.98963,1.02272) yaw=-31.5503deg vx=0 wz=0 err=0 odom=ok av=- 
