@@ -1049,7 +1049,14 @@ private:
         //   擦到第三排最下侧蓝锥）；完全相加又会抵消避让（更早实测撞中间一列锥）。
         //   取一半：避让仍占优，同时保留一半回正压住外漂。仅蓝卡生效，红卡不变。
         if (cone_here && card_color_ == "blue") corridor_wz *= 0.5;
-        const double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
+        double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
+        // ★ 第三排遇蓝锥：一律朝对称轴（中线）偏转（2026-11-24）
+        //   默认蓝卡往 -y（外侧）让，实测第三排遇到蓝锥时会向外偏转、贴着外缘走；
+        //   改成往中线让：蓝卡 +y、红卡 -y。只在蓝卡生效，红卡保持原逻辑。
+        if (card_color_ == "blue" && avoid_blue != nullptr
+            && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
+            off_dir = 1.0;   // 蓝卡：往 +y（中线）
+        }
         if (cone_here) {
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
             double area  = avoid_red ? avoid_red->area : avoid_blue->area;
