@@ -213,7 +213,7 @@ static constexpr double CAMP_SPEED_GAIN     = 1.25;
 static constexpr double CAMP_SPEED_GAIN_RED = 1.20;  // 红卡进营地提速 1.2 倍
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
-static constexpr double CAMP_LAT_DEADBAND   = 0.12;
+static constexpr double CAMP_LAT_DEADBAND   = 0.05;  // 0.12 -> 0.05：末段也会往对称轴纠，不再 12cm 就直行
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
