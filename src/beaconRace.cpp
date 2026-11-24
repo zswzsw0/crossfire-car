@@ -188,6 +188,8 @@ static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
 static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
 static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
+// ★ 第三排遇蓝锥朝中线时，起转速率再乘这个倍数（1.0=不额外放大）
+static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -569,6 +571,7 @@ public:
                           << " vx=" << cmd_vx_ << " wz=" << cmd_wz_
                           << " err=" << erro_
                           << " odom=" << (have_odom_ ? "ok" : "wait")
+                          << " av=" << (avoiding_ ? (avoid_inner_ ? "IN" : "OUT") : "-")
                           << " " << card_label_ << "\n";
             }
         }
@@ -591,6 +594,7 @@ private:
     std::string card_label_;
     int hold_blue_ = 0, hold_red_ = 0;
     int avoid_frames_ = 0;   // ★ 连续避让帧计数，用于限时
+bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线」分支（仅用于日志观察）
     double avoid_yaw_ = 0;   // ★ 避让航向偏置(rad)，有界，红卡取正(左)、蓝卡取负(右)
     double base_x_ = 0, base_y_ = 0, goal_x_ = 0, goal_y_ = 0;
     std::chrono::steady_clock::time_point wait_t0_{};
@@ -1052,9 +1056,10 @@ private:
         double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
         // ★ 第三排遇蓝锥：一律朝对称轴（中线）偏转（2026-11-24）
         //   默认蓝卡往 -y（外侧）让，实测第三排遇到蓝锥时会向外偏转、贴着外缘走；
-        //   改成往中线让：蓝卡 +y、红卡 -y。只在蓝卡生效，红卡保持原逻辑。
-        if (card_color_ == "blue" && avoid_blue != nullptr
-            && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
+        //   改成往中线让：蓝卡 +y。只在蓝卡生效，红卡保持原逻辑。
+        const bool inner_third_row = (card_color_ == "blue" && avoid_blue != nullptr
+                                      && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1);
+        if (inner_third_row) {
             off_dir = 1.0;   // 蓝卡：往 +y（中线）
         }
         if (cone_here) {
@@ -1065,6 +1070,9 @@ private:
             double rate = AVOID_YAW_RATE;
             if (avoid_blue != nullptr) {
                 rate *= (card_color_ == "red") ? RED_BLUE_CONE_RATE_GAIN : BLUE_BLUE_CONE_RATE_GAIN;
+            // ★ 第三排遇蓝锥朝中线时，再把偏转幅度放大（2026-11-24 实测仍擦到最外侧蓝锥）
+            if (inner_third_row) rate *= THIRD_ROW_INNER_GAIN;
+            avoid_inner_ = inner_third_row;
             }
             if (x_ > MIDROW_X0 && x_ < MIDROW_X1) rate *= MIDROW_RATE_GAIN;   // 中间排区域反应更快
             if (area > max_a * 0.6) avoid_yaw_ = off_dir * AVOID_YAW_MAX;
