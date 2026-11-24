@@ -1,4 +1,4 @@
-/* ============================================================================
+﻿/* ============================================================================
  *  beaconRace.cpp  —— 参数改动指南（注释版）
  *
  *  本文件由板子上的原版源码复制而来，代码逻辑一字未改，只在关键位置插入注释。
@@ -134,7 +134,7 @@ static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则
 static constexpr double RED_BASE_APPROACH_GAIN = 1.00;  // 红卡去据点的速度倍率（1.40->1.00：减少冲过据点目标的距离，与蓝卡一致）
 static constexpr double RED_BASE_WZ_MAX = 1.10;  // 红卡在据点的转向角速度上限(rad/s)（0.75->1.10：实测转向幅度不足，转不到位）
 // ★ 红卡在第三排遇蓝锥的判定带宽额外放宽(px)：更早起转（2026-11-24 实测撞第三排从左数第二个锥）
-static constexpr double RED_THIRD_ROW_EXTRA_PX = 18.0;  // 25->18：稍微延后一点点，但仍早于 v2.1（=0）
+static constexpr double RED_THIRD_ROW_EXTRA_PX = 28.0;  // 18->28：第三排蓝锥再提前识别一点
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
@@ -204,6 +204,8 @@ static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 0.15 -> 0.25（再延长
 // ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
 static constexpr double CAMP_SPEED_GAIN     = 1.25;
+static constexpr double CAMP_SPEED_GAIN_RED = 1.20;  // 红卡进营地提速 1.2 倍
+static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
 static constexpr double CAMP_LAT_DEADBAND   = 0.12;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
@@ -999,11 +1001,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         erro_ = wz;
     }
 
-    // ★ 蓝卡进营地模式：x 首次超过第三排末端后开始计时，满 CAMP_MODE_DELAY_SEC 置位
+    // ★ 进营地模式（红蓝共用）：x 首次超过第三排末端后开始计时，满 CAMP_MODE_DELAY_SEC 置位
     //   （0.3s 的延后是按要求加的，避免刚出雷区就立刻锁死航向）
     bool updateCampMode()
     {
-        if (card_color_ != "blue") return false;
         if (!camp_timer_started_ && x_ > THIRD_ROW_X1) {
             camp_timer_started_ = true;
             camp_t0_ = std::chrono::steady_clock::now();
@@ -1109,10 +1110,12 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         // ★ 第三排遇蓝锥：一律朝对称轴（中线）偏转（2026-11-24）
         //   默认蓝卡往 -y（外侧）让，实测第三排遇到蓝锥时会向外偏转、贴着外缘走；
         //   改成往中线让：蓝卡 +y。只在蓝卡生效，红卡保持原逻辑。
-        const bool inner_third_row = (card_color_ == "blue" && avoid_blue != nullptr
+        // ★ 第三排遇蓝锥：蓝卡一律朝中线；红卡也改为朝中线（2026-11-24 要求：
+        //   最外侧那个蓝锥不要再朝边界转）。红卡在内侧时同样朝中线，蓝卡逻辑不变。
+        const bool inner_third_row = (avoid_blue != nullptr
                                       && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1);
         if (inner_third_row) {
-            off_dir = 1.0;   // 蓝卡：往 +y（中线）
+            off_dir = (card_color_ == "blue") ? 1.0 : -1.0;   // 蓝卡 +y、红卡 -y，均朝中线
         }
         if (cone_here) {
             // 锥桶已经贴脸：不要停车（会卡死），直接满偏航向快速让开
@@ -1150,12 +1153,15 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             }
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
             const bool camp_mode = updateCampMode();
-            if (card_color_ == "blue" && camp_mode) {
-                // ★ 蓝卡进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：
-                //   横向偏差大 → 朝营地中心轴 (goal_x, goal_y) 开；
-                //   已经到中心线附近（|dy| < CAMP_LAT_DEADBAND）→ 只保持 +x 直行。
-                //   2026-11-24 实测：不加死区会从 -1.25 一路纠到 -0.81（冲到地图中间方向）。
-                yaw_cmd = (std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
+            if (camp_mode) {
+                // ★ 进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：
+                //   横向偏差适中 → 朝营地中心轴 (goal_x, goal_y) 开；
+                //   已到中心线附近（|dy| < CAMP_LAT_DEADBAND）→ 保持 +x 直行。
+                //   保护：|dy| 超过 CAMP_MAX_LAT 说明偏差过大（被撞偏/航向漂了），
+                //   此时代码不追中心点，避免像 20:49 那轮越过目标后掉头冲出场。
+                if (std::abs(dy) < CAMP_MAX_LAT) {
+                    yaw_cmd = (std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
+                }
             }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
@@ -1172,7 +1178,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 // 营地内：完全保持原减速曲线
                 vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);
             }
-            if (card_color_ == "blue" && camp_mode) vx *= CAMP_SPEED_GAIN;   // 营地内提速 1.25x
+            if (camp_mode) vx *= ((card_color_ == "blue") ? CAMP_SPEED_GAIN : CAMP_SPEED_GAIN_RED);   // 营地内提速：蓝 1.25x / 红 1.20x
             send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = yaw_cmd;
             return false;
