@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
  *  beaconRace.cpp  —— 参数改动指南（注释版）
  *
  *  本文件由板子上的原版源码复制而来，代码逻辑一字未改，只在关键位置插入注释。
@@ -194,7 +194,7 @@ static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏�
 static constexpr double RED_ROW2_X0   = 3.00;  // 第二排区间起点 x(m)
 static constexpr double RED_ROW2_X1   = 4.30;  // 第二排区间终点 x(m)
 static constexpr double RED_ROW2_RAMP = 0.30;  // 两端过渡距离(m)
-static constexpr double RED_ROW2_DY   = 0.15;  // 往 +y（红卡那侧边界）偏移(m)
+static constexpr double RED_ROW2_DY   = 0.30;  // 往 +y（红卡那侧边界）偏移(m)，0.15 -> 0.30：第二排转向幅度不足
 // ★ 第三排遇蓝锥朝中线时，起转速率再乘这个倍数（1.0=不额外放大）
 static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
