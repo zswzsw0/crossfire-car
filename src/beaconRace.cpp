@@ -137,6 +137,8 @@ static constexpr double RED_BASE_WZ_MAX = 1.10;  // 红卡在据点的转向角�
 static constexpr double RED_THIRD_ROW_EXTRA_PX = 28.0;  // 18->28：第三排蓝锥再提前识别一点
 // ★ 蓝卡在第三排遇蓝锥的判定带宽额外放宽(px)：提前一点识别（2026-11-24）
 static constexpr double BLUE_THIRD_ROW_EXTRA_PX = 30.0;  // 20 -> 30：蓝卡再提前识别一点
+// ★ 出界保护阈值(m)：|y| 超过它就禁止继续往外避让
+static constexpr double OUTBOUND_GUARD_Y = 1.45;
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
@@ -1111,6 +1113,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         //   取一半：避让仍占优，同时保留一半回正压住外漂。仅蓝卡生效，红卡不变。
         if (cone_here && card_color_ == "blue") corridor_wz *= 0.5;
         double off_dir = (card_color_ == "blue") ? -1.0 : 1.0;
+        // ★ 出界保护（2026-11-24）：已经贴近场地边界时，禁止再往边界方向避让，
+        //   一律改为朝场内避。实测蓝卡从第二排绕最外侧锥时被推到场外。
+        const bool outside_guard = (card_color_ == "blue") ? (y_ < -OUTBOUND_GUARD_Y)
+                                                           : (y_ >  OUTBOUND_GUARD_Y);
+        if (outside_guard) off_dir = (card_color_ == "blue") ? 1.0 : -1.0;
         // ★ 第三排遇蓝锥：一律朝对称轴（中线）偏转（2026-11-24）
         //   默认蓝卡往 -y（外侧）让，实测第三排遇到蓝锥时会向外偏转、贴着外缘走；
         //   改成往中线让：蓝卡 +y。只在蓝卡生效，红卡保持原逻辑。
