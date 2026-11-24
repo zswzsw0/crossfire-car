@@ -144,7 +144,7 @@ static constexpr double OUTBOUND_GUARD_Y = 1.32;
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
-static constexpr double DEPART_VX  = 0.65;  // 该段速度下限(m/s，×1.3)
+static constexpr double DEPART_VX  = 0.72;  // 该段速度下限(m/s)，0.65 -> 0.72（提高 1.1 倍）
 
 // ★ 出据点起步偏置：让车头朝赛道中央多偏一点，提前看清第一排中间的锥桶。
 //   蓝卡 0.18rad / 2.40m 实测正常；红卡同一设置会贴着中心线走、
