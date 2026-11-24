@@ -195,7 +195,7 @@ static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
 static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
 // ★ 红卡：跑到红色据点的运行时间延长（2026-11-24；只加时间，不改速度）
-static constexpr double BASE_EXTRA_RED_SEC  = 0.15;
+static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 0.15 -> 0.25（再延长 0.1s）
 // ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
 static constexpr double CAMP_SPEED_GAIN     = 1.25;
