@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
  *  beaconRace.cpp  —— 参数改动指南（注释版）
  *
  *  本文件由板子上的原版源码复制而来，代码逻辑一字未改，只在关键位置插入注释。
@@ -140,7 +140,7 @@ static constexpr double BLUE_THIRD_ROW_EXTRA_PX = 36.0;  // 30 -> 36：再提前
 // ★ 出界保护阈值(m)：|y| 超过它就禁止继续往外避让/强制回场
 //   场地总宽 4m → y∈[-2,+2]；正常路线第三排峰值约 -1.28，故设 1.32：
 //   比正常路径略靠外，但只要再多偏一点就立刻干预（留出里程计误差的余量）。
-static constexpr double OUTBOUND_GUARD_Y = 1.50;
+static constexpr double OUTBOUND_GUARD_Y = 1.32;
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
@@ -197,10 +197,10 @@ static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避�
 static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
 static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
 // ★ 红卡第二排：往该侧的场地边界(+y)偏（2026-11-24，蓝卡不受影响）
-static constexpr double RED_ROW2_X0   = 2.75;  // 第二排区间起点 x(m)，2.90 -> 2.75：再提前一点转向
+static constexpr double RED_ROW2_X0   = 3.00;  // 第二排区间起点 x(m)
 static constexpr double RED_ROW2_X1   = 4.30;  // 第二排区间终点 x(m)
 static constexpr double RED_ROW2_RAMP = 0.30;  // 两端过渡距离(m)
-static constexpr double RED_ROW2_DY   = 0.36;  // 往 +y（红卡那侧边界）偏移(m)，0.30 -> 0.36：再加大一点点
+static constexpr double RED_ROW2_DY   = 0.30;  // 往 +y（红卡那侧边界）偏移(m)，0.15 -> 0.30：第二排转向幅度不足
 // ★ 第三排遇蓝锥朝中线时，起转速率再乘这个倍数（1.0=不额外放大）
 static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
@@ -946,15 +946,9 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             double thr = CONE_PATH_HALF_W + 90.0 * (b.cy / static_cast<double>(IMG_H));
             // ★ 第三排遇蓝锥：判定带宽放宽 → 提前识别、提前起转（2026-11-24）
             //   红卡 28px（实测撞第三排从左数第二个锥）；蓝卡 20px（提前一点识别）。
-            // ★ 蓝锥提前识别（2026-11-24 扩展）：
-            //   红卡从第二排起点(2.75)之后就一直提前识别，覆盖「中间那排」和「第三排」；
-            //   蓝卡仍只在第三排区间。
-            if (is_blue_cone) {
-                if (card_color_ == "red" && x_ > RED_ROW2_X0) {
-                    thr += RED_THIRD_ROW_EXTRA_PX;
-                } else if (card_color_ == "blue" && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
-                    thr += BLUE_THIRD_ROW_EXTRA_PX;
-                }
+            if (is_blue_cone && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
+                if (card_color_ == "red")       thr += RED_THIRD_ROW_EXTRA_PX;
+                else if (card_color_ == "blue") thr += BLUE_THIRD_ROW_EXTRA_PX;
             }
             if (std::abs(b.cx - ref) <= thr) on.push_back(b);
         }
