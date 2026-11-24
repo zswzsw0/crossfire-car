@@ -136,7 +136,7 @@ static constexpr double RED_BASE_WZ_MAX = 1.10;  // 红卡在据点的转向角�
 // ★ 红卡在第三排遇蓝锥的判定带宽额外放宽(px)：更早起转（2026-11-24 实测撞第三排从左数第二个锥）
 static constexpr double RED_THIRD_ROW_EXTRA_PX = 28.0;  // 18->28：第三排蓝锥再提前识别一点
 // ★ 蓝卡在第三排遇蓝锥的判定带宽额外放宽(px)：提前一点识别（2026-11-24）
-static constexpr double BLUE_THIRD_ROW_EXTRA_PX = 20.0;
+static constexpr double BLUE_THIRD_ROW_EXTRA_PX = 30.0;  // 20 -> 30：蓝卡再提前识别一点
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
