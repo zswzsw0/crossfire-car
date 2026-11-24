@@ -1131,9 +1131,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
             const bool camp_mode = updateCampMode();
             if (card_color_ == "blue" && camp_mode) {
-                // ★ 蓝卡进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：航向锁 +x 不偏，
-                //   速度在原有基础上乘 CAMP_SPEED_GAIN（不动任何速度参数）
-                yaw_cmd = yaw_to_x;
+                // ★ 蓝卡进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：直接朝营地中心点开，
+                //   而不是锁死 +x。实测锁 +x 会把进入时的横向偏差一路带到底、停在偏左位置，
+                //   所以这里改用 yaw_err（指向 (goal_x, goal_y) 营地中心轴），同时提速。
+                yaw_cmd = yaw_err;
             }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
