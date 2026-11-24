@@ -192,6 +192,9 @@ static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏�
 static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
 static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
+// ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
+static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
+static constexpr double CAMP_SPEED_GAIN     = 1.25;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -604,6 +607,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
     bool   base_extra_active_ = false;
     std::chrono::steady_clock::time_point base_extra_t0_{};
     double base_extra_vx_ = 0.234;
+    // ★ 蓝卡进营地模式：x 过第三排后计时 CAMP_MODE_DELAY_SEC 才置位
+    bool   camp_timer_started_ = false;
+    bool   camp_mode_ = false;
+    std::chrono::steady_clock::time_point camp_t0_{};
     double erro_ = 0;
 
     bool have_odom_ = false;
@@ -977,6 +984,24 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         erro_ = wz;
     }
 
+    // ★ 蓝卡进营地模式：x 首次超过第三排末端后开始计时，满 CAMP_MODE_DELAY_SEC 置位
+    //   （0.3s 的延后是按要求加的，避免刚出雷区就立刻锁死航向）
+    bool updateCampMode()
+    {
+        if (card_color_ != "blue") return false;
+        if (!camp_timer_started_ && x_ > THIRD_ROW_X1) {
+            camp_timer_started_ = true;
+            camp_t0_ = std::chrono::steady_clock::now();
+            return false;
+        }
+        if (camp_timer_started_ && !camp_mode_) {
+            const double t = std::chrono::duration<double>(
+                                 std::chrono::steady_clock::now() - camp_t0_).count();
+            if (t >= CAMP_MODE_DELAY_SEC) camp_mode_ = true;
+        }
+        return camp_mode_;
+    }
+
     bool navGoal(const Track* track, const Blob* avoid_red, const Blob* avoid_blue)
     {
         avoiding_ = false;
@@ -1104,6 +1129,12 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 k = clampd(1.0 - dist / ENTRY_ALIGN_DIST, 0.0, 1.0) * ENTRY_ALIGN_W;
             }
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
+            const bool camp_mode = updateCampMode();
+            if (card_color_ == "blue" && camp_mode) {
+                // ★ 蓝卡进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：航向锁 +x 不偏，
+                //   速度在原有基础上乘 CAMP_SPEED_GAIN（不动任何速度参数）
+                yaw_cmd = yaw_to_x;
+            }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
             //    红卡用更早的刹车点（GOAL_SLOW_DIST_RED），蓝卡保持原值。
@@ -1119,6 +1150,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 // 营地内：完全保持原减速曲线
                 vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);
             }
+            if (card_color_ == "blue" && camp_mode) vx *= CAMP_SPEED_GAIN;   // 营地内提速 1.25x
             send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = yaw_cmd;
             return false;
