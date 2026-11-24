@@ -197,7 +197,7 @@ static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避�
 static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
 static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
 // ★ 红卡第二排：往该侧的场地边界(+y)偏（2026-11-24，蓝卡不受影响）
-static constexpr double RED_ROW2_X0   = 2.90;  // 第二排区间起点 x(m)，3.00 -> 2.90：提前约 0.1s 开始转向
+static constexpr double RED_ROW2_X0   = 2.75;  // 第二排区间起点 x(m)，2.90 -> 2.75：再提前一点转向
 static constexpr double RED_ROW2_X1   = 4.30;  // 第二排区间终点 x(m)
 static constexpr double RED_ROW2_RAMP = 0.30;  // 两端过渡距离(m)
 static constexpr double RED_ROW2_DY   = 0.30;  // 往 +y（红卡那侧边界）偏移(m)，0.15 -> 0.30：第二排转向幅度不足
