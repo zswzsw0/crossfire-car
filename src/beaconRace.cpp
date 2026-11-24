@@ -133,6 +133,8 @@ static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则
 // ★ 红卡去据点更快（仅红卡，蓝卡保持 1.0）
 static constexpr double RED_BASE_APPROACH_GAIN = 1.00;  // 红卡去据点的速度倍率（1.40->1.00：减少冲过据点目标的距离，与蓝卡一致）
 static constexpr double RED_BASE_WZ_MAX = 1.10;  // 红卡在据点的转向角速度上限(rad/s)（0.75->1.10：实测转向幅度不足，转不到位）
+// ★ 红卡在第三排遇蓝锥的判定带宽额外放宽(px)：更早起转（2026-11-24 实测撞第三排从左数第二个锥）
+static constexpr double RED_THIRD_ROW_EXTRA_PX = 25.0;
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
@@ -553,7 +555,7 @@ public:
             bool has_red = false, has_blue = false;
             if (phase_ == Phase::NavGoal) {
                 has_red = pickConeInPath(reds, cfg_.red_cone_min_area, has_track ? &track : nullptr, avoid_red);
-                has_blue = pickConeInPath(blues, cfg_.blue_cone_min_area, has_track ? &track : nullptr, avoid_blue);
+                has_blue = pickConeInPath(blues, cfg_.blue_cone_min_area, has_track ? &track : nullptr, avoid_blue, true);
             }
             cv::Rect card_box;
             bool has_card = false;
@@ -920,13 +922,17 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
     // 阈值随锥桶远近自动放大（cy 越大=越近，允许的横向偏差越大），
     // 这样赛道边缘的蓝锥也能被正确识别为挡路，而不是要求它贴着中间黑点连线。
     bool pickConeInPath(const std::vector<Blob>& cones, double min_area,
-                        const Track* track, Blob& out) const
+                        const Track* track, Blob& out, bool is_blue_cone = false) const
     {
         double ref = track ? track->mid_x : CENTER_X;
         std::vector<Blob> on;
         for (const auto& b : cones) {
             if (b.area < min_area) continue;
             double thr = CONE_PATH_HALF_W + 90.0 * (b.cy / static_cast<double>(IMG_H));
+            // ★ 红卡在第三排遇蓝锥：判定带宽放宽 → 更早把它当挡路物、提前起转（2026-11-24）
+            //   实测红卡从左往右数第二个锥来不及躲。蓝卡不受影响。
+            if (is_blue_cone && card_color_ == "red" && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1)
+                thr += RED_THIRD_ROW_EXTRA_PX;
             if (std::abs(b.cx - ref) <= thr) on.push_back(b);
         }
         return pickNearest(on, min_area, out);
