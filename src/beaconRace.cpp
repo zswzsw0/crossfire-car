@@ -194,6 +194,8 @@ static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏�
 static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
 static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
+// ★ 红卡：跑到红色据点的运行时间延长（2026-11-24；只加时间，不改速度）
+static constexpr double BASE_EXTRA_RED_SEC  = 0.15;
 // ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
 static constexpr double CAMP_SPEED_GAIN     = 1.25;
@@ -1256,12 +1258,12 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         if (!have_odom_) { sendStop(); return; }
 
         if (phase_ == Phase::NavBase) {
-            // ★ 蓝卡：到达据点判定成立后，先按原速继续跑 BASE_EXTRA_BLUE_SEC 秒再停车
-            //   （只加时间，不改速度；红卡完全不受影响）
+            // ★ 到达据点判定成立后，先按原速继续跑 extra_sec 秒再停车（只加时间，不改速度）
+            const double extra_sec = (card_color_ == "blue") ? BASE_EXTRA_BLUE_SEC : BASE_EXTRA_RED_SEC;
             if (base_extra_active_) {
                 double ex = std::chrono::duration<double>(
                                 std::chrono::steady_clock::now() - base_extra_t0_).count();
-                if (ex < BASE_EXTRA_BLUE_SEC) {
+                if (ex < extra_sec) {
                     send(base_extra_vx_, 0.0);
                     return;
                 }
@@ -1269,12 +1271,12 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 phase_ = Phase::WaitBase;
                 wait_t0_ = std::chrono::steady_clock::now();
                 sendStop();
-                std::cout << "\n到达据点（蓝卡已多加 "
-                          << BASE_EXTRA_BLUE_SEC << "s），停车 " << cfg_.base_wait_sec << " 秒\n";
+                std::cout << "\n到达据点（已多加 "
+                          << extra_sec << "s），停车 " << cfg_.base_wait_sec << " 秒\n";
                 return;
             }
             if (gotoLocal(base_x_, base_y_, true)) {
-                if (card_color_ == "blue") {
+                if (extra_sec > 0.0) {
                     base_extra_active_ = true;
                     base_extra_t0_ = std::chrono::steady_clock::now();
                     return;
