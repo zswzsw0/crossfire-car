@@ -1,0 +1,12 @@
+run      : 2026-11-24_203826_red_DONE_77s
+saved    : 2026-11-24 20:38:27
+source   : root@192.168.1.3:/home/root/run_logs/br_run.log
+binary   : md5 f9274b3a012279c813551f0a10a45e87
+card     : red
+result   : DONE
+seconds  : 77
+nav_goal : 12 lines, 1 in-place spins
+max_vx   : 1.57892
+final    : DONE card=red pose=(6.82574,0.836985) yaw=5.00535deg vx=0 wz=0 err=0 odom=ok av=- 
+error    : 0.091 m
+note     : watcher run in report D:\穿越火线\run_report.log
