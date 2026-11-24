@@ -190,6 +190,8 @@ static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏�
 static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
 // ★ 第三排遇蓝锥朝中线时，起转速率再乘这个倍数（1.0=不额外放大）
 static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
+// ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
+static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -598,6 +600,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
     double avoid_yaw_ = 0;   // ★ 避让航向偏置(rad)，有界，红卡取正(左)、蓝卡取负(右)
     double base_x_ = 0, base_y_ = 0, goal_x_ = 0, goal_y_ = 0;
     std::chrono::steady_clock::time_point wait_t0_{};
+    // ★ 蓝卡：到达据点后继续按原速多跑 0.15 s（2026-11-24，不改变任何速度参数）
+    bool   base_extra_active_ = false;
+    std::chrono::steady_clock::time_point base_extra_t0_{};
+    double base_extra_vx_ = 0.234;
     double erro_ = 0;
 
     bool have_odom_ = false;
@@ -938,6 +944,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 vx = clampd(cfg_.pos_p * base_gain * dist, 0.234 * base_gain, cfg_.vel_x_odom);
             }
             send(vx, wz);
+            base_extra_vx_ = vx;   // 记录接近段速度，供「多加 0.15s」沿用，不改任何速度参数
             erro_ = yaw_err;
             return false;
         }
@@ -1207,7 +1214,29 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         if (!have_odom_) { sendStop(); return; }
 
         if (phase_ == Phase::NavBase) {
+            // ★ 蓝卡：到达据点判定成立后，先按原速继续跑 BASE_EXTRA_BLUE_SEC 秒再停车
+            //   （只加时间，不改速度；红卡完全不受影响）
+            if (base_extra_active_) {
+                double ex = std::chrono::duration<double>(
+                                std::chrono::steady_clock::now() - base_extra_t0_).count();
+                if (ex < BASE_EXTRA_BLUE_SEC) {
+                    send(base_extra_vx_, 0.0);
+                    return;
+                }
+                base_extra_active_ = false;
+                phase_ = Phase::WaitBase;
+                wait_t0_ = std::chrono::steady_clock::now();
+                sendStop();
+                std::cout << "\n到达据点（蓝卡已多加 "
+                          << BASE_EXTRA_BLUE_SEC << "s），停车 " << cfg_.base_wait_sec << " 秒\n";
+                return;
+            }
             if (gotoLocal(base_x_, base_y_, true)) {
+                if (card_color_ == "blue") {
+                    base_extra_active_ = true;
+                    base_extra_t0_ = std::chrono::steady_clock::now();
+                    return;
+                }
                 phase_ = Phase::WaitBase;
                 wait_t0_ = std::chrono::steady_clock::now();
                 sendStop();
