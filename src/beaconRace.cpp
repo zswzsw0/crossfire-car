@@ -190,6 +190,11 @@ static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
 static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
 static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
+// ★ 红卡第二排：往该侧的场地边界(+y)偏（2026-11-24，蓝卡不受影响）
+static constexpr double RED_ROW2_X0   = 3.00;  // 第二排区间起点 x(m)
+static constexpr double RED_ROW2_X1   = 4.30;  // 第二排区间终点 x(m)
+static constexpr double RED_ROW2_RAMP = 0.30;  // 两端过渡距离(m)
+static constexpr double RED_ROW2_DY   = 0.15;  // 往 +y（红卡那侧边界）偏移(m)
 // ★ 第三排遇蓝锥朝中线时，起转速率再乘这个倍数（1.0=不额外放大）
 static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
@@ -1024,6 +1029,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             if (w > 0.0) {
                 dy += (card_color_ == "blue") ? (THIRD_ROW_DY_BLUE * w) : (-THIRD_ROW_DY_RED * w);
             }
+        }
+        // ★ 红卡第二排：往该走的那侧边界(+y)偏（2026-11-24 要求，蓝卡不受影响）
+        if (card_color_ == "red") {
+            const double w2 = clampd(std::min(x_ - RED_ROW2_X0, RED_ROW2_X1 - x_) / RED_ROW2_RAMP, 0.0, 1.0);
+            if (w2 > 0.0) dy += RED_ROW2_DY * w2;
         }
         double dist = std::hypot(dx, dy);
         double yaw_to_x = wrapPi(0.0 - yaw_);   // ★ 车头对准 +x 的误差（营地入口方向）
