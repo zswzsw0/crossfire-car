@@ -1027,6 +1027,18 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
     bool navGoal(const Track* track, const Blob* avoid_red, const Blob* avoid_blue)
     {
         avoiding_ = false;
+        // ★★ 出界保护（最高优先级，2026-11-24）：一旦越过保护线，直接把车头朝场内转，
+        //    避让 / 走廊 / 营地模式 / 横向偏置全部让路，先回场再说。
+        const bool out_guard = (card_color_ == "blue") ? (y_ < -OUTBOUND_GUARD_Y)
+                                                       : (y_ >  OUTBOUND_GUARD_Y);
+        if (out_guard) {
+            const double target = (card_color_ == "blue") ? (kPi * 0.5) : (-kPi * 0.5);  // 朝 +y / -y
+            const double e = wrapPi(target - yaw_);
+            send(std::min(cfg_.vel_x_odom, 0.30),
+                 clampd(cfg_.yaw_p * e, -cfg_.vel_z_max, cfg_.vel_z_max));
+            erro_ = e;
+            return false;
+        }
         double dx = goal_x_ - x_, dy = goal_y_ - y_;
         // ★ 第三排往中线修正：该段把有效目标 y 往中线偏一点，压住外漂。
         //   两端用 THIRD_ROW_RAMP 线性过渡，避免目标点突跳造成抖动。
