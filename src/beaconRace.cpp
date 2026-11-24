@@ -135,6 +135,8 @@ static constexpr double RED_BASE_APPROACH_GAIN = 1.00;  // 红卡去据点的速
 static constexpr double RED_BASE_WZ_MAX = 1.10;  // 红卡在据点的转向角速度上限(rad/s)（0.75->1.10：实测转向幅度不足，转不到位）
 // ★ 红卡在第三排遇蓝锥的判定带宽额外放宽(px)：更早起转（2026-11-24 实测撞第三排从左数第二个锥）
 static constexpr double RED_THIRD_ROW_EXTRA_PX = 28.0;  // 18->28：第三排蓝锥再提前识别一点
+// ★ 蓝卡在第三排遇蓝锥的判定带宽额外放宽(px)：提前一点识别（2026-11-24）
+static constexpr double BLUE_THIRD_ROW_EXTRA_PX = 20.0;
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
@@ -938,10 +940,12 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         for (const auto& b : cones) {
             if (b.area < min_area) continue;
             double thr = CONE_PATH_HALF_W + 90.0 * (b.cy / static_cast<double>(IMG_H));
-            // ★ 红卡在第三排遇蓝锥：判定带宽放宽 → 更早把它当挡路物、提前起转（2026-11-24）
-            //   实测红卡从左往右数第二个锥来不及躲。蓝卡不受影响。
-            if (is_blue_cone && card_color_ == "red" && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1)
-                thr += RED_THIRD_ROW_EXTRA_PX;
+            // ★ 第三排遇蓝锥：判定带宽放宽 → 提前识别、提前起转（2026-11-24）
+            //   红卡 28px（实测撞第三排从左数第二个锥）；蓝卡 20px（提前一点识别）。
+            if (is_blue_cone && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
+                if (card_color_ == "red")       thr += RED_THIRD_ROW_EXTRA_PX;
+                else if (card_color_ == "blue") thr += BLUE_THIRD_ROW_EXTRA_PX;
+            }
             if (std::abs(b.cx - ref) <= thr) on.push_back(b);
         }
         return pickNearest(on, min_area, out);
