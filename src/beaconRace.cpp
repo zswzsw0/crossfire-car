@@ -1211,6 +1211,19 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         //   （净 +0.75rad/s 向左），于是出第三排后大角度左偏、没进营地、最后冲出界。
         //   这里只在 x>THIRD_ROW_X1 且路线上确实没有锥时才清零，前三排避让逻辑不受影响。
         if (card_color_ == "blue" && !cone_here && x_ > THIRD_ROW_X1) avoid_yaw_ = 0.0;
+        // ★★ 已经到/超过营地对称轴、路线上又没锥时，禁止再"朝中线"内偏（2026-11-26）
+        //   承接上面那条：判据不能只看"出了第三排"。实测 18:44 轮最后一个蓝锥在 x≈5.1 就过去了，
+        //   之后 avoid_yaw_ 仍停在 +0.65rad 慢慢回零：从 (5.19,-1.286) 起以 0.24rad/s 连续 2.7s
+        //   把车甩到 (5.59,+41.7°，y=-0.86)，再花 0.6s 用 -1.17 拉回 —— 这就是用户反复反馈的
+        //   "出第三排先左偏、绕一圈才回营地"。
+        //   蓝卡内偏是 +y：当 y 已经比 goal_y 更靠外（更负）还往 +y 转，纯属多余，直接清零；
+        //   红卡镜像（内偏 -y，y 比 goal_y 更大时清零）。有锥在路线上时不受影响，避让照常。
+        if (!cone_here && x_ > THIRD_ROW_X0) {
+            const bool inward = (card_color_ == "blue")
+                                    ? (avoid_yaw_ > 0.0 && y_ < goal_y_)
+                                    : (avoid_yaw_ < 0.0 && y_ > goal_y_);
+            if (inward) avoid_yaw_ = 0.0;
+        }
         // ★ 红卡第三排遇蓝锥：偏转限幅（2026-11-26），避免一帧满舵横穿整排锥
         if (card_color_ == "red" && avoid_blue != nullptr
             && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
