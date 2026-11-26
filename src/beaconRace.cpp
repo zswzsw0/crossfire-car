@@ -141,7 +141,7 @@ static constexpr double BLUE_EARLY_ROW_X0 = 4.70;  // 蓝卡蓝锥提前识别�
 // ★ 蓝卡第二排（中间 3 个锥桶那排）也提前一点点起转（2026-11-26 用户反馈"转向晚了一点点差一点点撞"）：
 //   第二排原本用基础判定带宽 60px，锥桶要几乎贴到行进线才起转；这里加 20px（=第三排 40px 的一半，
 //   用户要求"提前一点点，不要提前太远"）。只在 x∈(2.85, 4.30) 生效，与第三排窗口(4.70~6.30)不重叠。
-static constexpr double BLUE_ROW2_EXTRA_PX = 20.0;
+static constexpr double BLUE_ROW2_EXTRA_PX = 26.0;
 static constexpr double BLUE_ROW2_EARLY_X0 = 2.85;
 // ★ 出界保护阈值(m)：|y| 超过它就禁止继续往外避让/强制回场
 //   场地总宽 4m → y∈[-2,+2]；正常路线第三排峰值约 -1.28，故设 1.32：
@@ -201,8 +201,8 @@ static constexpr double THIRD_ROW_X0   = 5.00;  // 区间起点 x(m)
 static constexpr double THIRD_ROW_X0_RED = 4.60;  // 红卡内偏提前起点（2026-11-26，蓝卡仍用 5.00）
 static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
-static constexpr double THIRD_ROW_DY_BLUE = 0.30;  // 蓝卡：往中线(+y)偏移(m)，0.22 -> 0.30（离右侧锥更远）
-static constexpr double THIRD_ROW_DY_RED  = 0.33;  // 红卡：往中线(-y)偏移(m)，0.25 -> 0.33（离最外侧锥更远）
+static constexpr double THIRD_ROW_DY_BLUE = 0.34;  // 蓝卡：往中线(+y)偏移(m)，0.30 -> 0.34（擦最外侧锥，只加一半步长）
+static constexpr double THIRD_ROW_DY_RED  = 0.37;  // 红卡：往中线(-y)偏移(m)，0.33 -> 0.37（擦第三排第二个锥，只加一半步长）
 // ★ 红卡第二排：往该侧的场地边界(+y)偏（2026-11-24，蓝卡不受影响）
 static constexpr double RED_ROW2_X0   = 3.00;  // 第二排区间起点 x(m)
 static constexpr double RED_ROW2_X1   = 4.30;  // 第二排区间终点 x(m)
