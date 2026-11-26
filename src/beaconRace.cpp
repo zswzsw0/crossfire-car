@@ -1196,6 +1196,13 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             else avoid_yaw_ -= std::copysign(AVOID_YAW_RECOVER, avoid_yaw_);
         }
         avoid_yaw_ = clampd(avoid_yaw_, -AVOID_YAW_MAX, AVOID_YAW_MAX);
+        // ★ 出第三排后立刻清掉残余避让偏置（2026-11-26，仅蓝卡）：
+        //   实测蓝卡出第三排时 avoid_yaw_ 还停在 +0.65rad（朝中线/左侧），而回正只有
+        //   0.040rad/帧（约 6Hz → 0.24rad/s），要 2.7s 才归零；这 2.7s 里车带着 +37° 的
+        //   偏置以 0.645m/s 跑约 1.7m，把营地模式"朝营地对称轴"的 -0.42rad/s 完全盖住
+        //   （净 +0.75rad/s 向左），于是出第三排后大角度左偏、没进营地、最后冲出界。
+        //   这里只在 x>THIRD_ROW_X1 且路线上确实没有锥时才清零，前三排避让逻辑不受影响。
+        if (card_color_ == "blue" && !cone_here && x_ > THIRD_ROW_X1) avoid_yaw_ = 0.0;
         // ★ 红卡第三排遇蓝锥：偏转限幅（2026-11-26），避免一帧满舵横穿整排锥
         if (card_color_ == "red" && avoid_blue != nullptr
             && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
