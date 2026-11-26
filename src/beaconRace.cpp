@@ -1143,6 +1143,14 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         if (un < 1e-6) un = 1.0;
         ux /= un; uy /= un;
         double cross = -(x_ - base_x_) * uy + (y_ - base_y_) * ux;
+        // ★★ 第三排及之后：走廊基准改成"营地对称轴" y=goal_y（2026-11-26）
+        //   原因：base→goal 是斜线，在 x=5.34 处只有 y=-0.55，而营地对称轴是 -1.08。
+        //   实测蓝卡在第三排被避让推到 y=-1.30 时，走廊把"离斜线偏了 0.75m"当成偏左，
+        //   以 corridor_wz=+0.54 朝 +y(左)猛拉，叠加航向后 wz 打满 1.17，把车甩到 -0.51，
+        //   再靠 -1.17 拉回来 —— 就是用户看到的"出第三排先左偏、绕一圈才回营地"。
+        //   改成以营地对称轴为基准后：|y-goal_y|<0.45 时走廊完全不介入，
+        //   只有真正偏离营地轴超过 0.45m 才纠偏，方向永远指向营地中心。
+        if (x_ > THIRD_ROW_X0) cross = y_ - goal_y_;
         double corridor_wz = 0.0;
         double over = std::abs(cross) - ((card_color_ == "blue") ? CORRIDOR_HALF_W_BLUE : CORRIDOR_HALF_W_RED);
         if (over > 0)
