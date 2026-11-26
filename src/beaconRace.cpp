@@ -141,7 +141,7 @@ static constexpr double BLUE_EARLY_ROW_X0 = 4.70;  // 蓝卡蓝锥提前识别�
 // ★ 蓝卡第二排（中间 3 个锥桶那排）也提前一点点起转（2026-11-26 用户反馈"转向晚了一点点差一点点撞"）：
 //   第二排原本用基础判定带宽 60px，锥桶要几乎贴到行进线才起转；这里加 20px（=第三排 40px 的一半，
 //   用户要求"提前一点点，不要提前太远"）。只在 x∈(2.85, 4.30) 生效，与第三排窗口(4.70~6.30)不重叠。
-static constexpr double BLUE_ROW2_EXTRA_PX = 26.0;
+static constexpr double BLUE_ROW2_EXTRA_PX = 20.0;
 static constexpr double BLUE_ROW2_EARLY_X0 = 2.85;
 // ★ 出界保护阈值(m)：|y| 超过它就禁止继续往外避让/强制回场
 //   场地总宽 4m → y∈[-2,+2]；正常路线第三排峰值约 -1.28，故设 1.32：
@@ -198,11 +198,10 @@ static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角
 //   实测蓝卡在 x=5.25~5.78 一路外漂到 -1.306，擦到第三排最下侧蓝锥；
 //   走廊半宽/增益收到极限也压不住（外漂来自避让动作本身），故在该段把目标 y 往中线(+y)偏一点。
 static constexpr double THIRD_ROW_X0   = 5.00;  // 区间起点 x(m)
-static constexpr double THIRD_ROW_X0_RED = 4.60;  // 红卡内偏提前起点（2026-11-26，蓝卡仍用 5.00）
 static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
-static constexpr double THIRD_ROW_DY_BLUE = 0.34;  // 蓝卡：往中线(+y)偏移(m)，0.30 -> 0.34（擦最外侧锥，只加一半步长）
-static constexpr double THIRD_ROW_DY_RED  = 0.37;  // 红卡：往中线(-y)偏移(m)，0.33 -> 0.37（擦第三排第二个锥，只加一半步长）
+static constexpr double THIRD_ROW_DY_BLUE = 0.30;  // 蓝卡：往中线(+y)偏移(m)，0.22 -> 0.30（离右侧锥更远）
+static constexpr double THIRD_ROW_DY_RED  = 0.33;  // 红卡：往中线(-y)偏移(m)，0.25 -> 0.33（离最外侧锥更远）
 // ★ 红卡第二排：往该侧的场地边界(+y)偏（2026-11-24，蓝卡不受影响）
 static constexpr double RED_ROW2_X0   = 3.00;  // 第二排区间起点 x(m)
 static constexpr double RED_ROW2_X1   = 4.30;  // 第二排区间终点 x(m)
@@ -736,13 +735,6 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 bias_sum_ += sd.gyro_z;
                 ++bias_n_;
                 gyro_bias_ = bias_sum_ / bias_n_;
-                // ★ 零偏限幅（2026-11-26）：底盘固件会在某个时刻把陀螺清零，
-                //   而这里是"整个等待期取平均"，一旦跨过清零点就会算出 -0.067 这种假零偏。
-                //   实测 20:03 轮 b=-0.0673 时，13s 内凭空多积 0.87rad(50°) 航向，车横着跑出场；
-                //   同一代码 b≈0 的 20:07 轮误差只有 0.026m。
-                //   MEMS 陀螺静止零偏不会到 0.02rad/s(1.1°/s) 这个量级，超过就判定不可信、按 0 处理。
-                //   今天所有跑好的轮 b 都 < 1e-4，这条判断不会触发 —— 对蓝卡的现有行为零影响。
-                if (std::abs(gyro_bias_) > 0.02) gyro_bias_ = 0.0;
             }
             x_ = y_ = yaw_ = 0;
             return;
@@ -1083,12 +1075,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         //   两端用 THIRD_ROW_RAMP 线性过渡，避免目标点突跳造成抖动。
         //   蓝卡在中线下方(-y)，往 +y 偏；红卡在上方(+y)，往 -y 偏；偏移量各自独立。
         if (card_color_ == "blue" || card_color_ == "red") {
-            // ★ 红卡第三排内偏提前到 x=4.60 起（2026-11-26，仅红卡）：
-            //   实测 20:07 轮红卡在 x=4.61 已被第二排的 +y 避让推到 y=+0.819、yaw=+30°，
-            //   到 x=5.07 进第三排时已是 +0.931（第三排目标只有 +0.56），随后擦到最外层锥。
-            //   原来从 5.00 才起偏、5.30 才到位，来不及；提前 0.4m 起步。蓝卡仍用 5.00。
-            const double x0 = (card_color_ == "red") ? THIRD_ROW_X0_RED : THIRD_ROW_X0;
-            const double w = clampd(std::min(x_ - x0, THIRD_ROW_X1 - x_) / THIRD_ROW_RAMP, 0.0, 1.0);
+            const double w = clampd(std::min(x_ - THIRD_ROW_X0, THIRD_ROW_X1 - x_) / THIRD_ROW_RAMP, 0.0, 1.0);
             if (w > 0.0) {
                 dy += (card_color_ == "blue") ? (THIRD_ROW_DY_BLUE * w) : (-THIRD_ROW_DY_RED * w);
             }
