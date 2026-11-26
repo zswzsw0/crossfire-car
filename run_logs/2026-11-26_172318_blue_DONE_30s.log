@@ -1,0 +1,61 @@
+已读取配置 /home/root/beacon_race.cfg (42 项)
+已读取配置 beacon_race.cfg (42 项)
+Open serial port success: /dev/ttyUSB0, baudrate: 115200
+摄像头实际参数: 320 x 240 @ 30.00 fps
+FOURCC: MJPG
+realDelayMs: 33.3 ms
+ImgStream: listening on port 9999
+beaconRace 启动 | WAIT_CARD | drive=on force=off gyro_yaw=on
+蓝卡 A(1.06,0.88) -> (6.9,-1.08)
+红卡 B(1.06,-0.9) -> (6.9,0.89)
+按键: f改HSV q保存 l重载 x停车/恢复 v切换画面 c退出
+ImgStream: client 192.168.1.20
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- waiting
+WAIT_CARD card=- pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- BLUE
+
+CARD=blue base(1.06,0.88) goal(6.9,-1.08) gyro_bias=-0.120458 rad/s n=128
+NAV_BASE card=blue pose=(0,0) yaw=0deg vx=0 wz=0 err=0 odom=ok av=- BLUE
+NAV_BASE card=blue pose=(0.605744,0.36169) yaw=42.437deg vx=0.827038 wz=0.187849 err=0.110499 odom=ok av=- 
+NAV_BASE card=blue pose=(0.984295,0.785074) yaw=52.7183deg vx=0 wz=-1.17 err=-0.920107 odom=ok av=- 
+
+到达据点（已多加 0.15s），停车 1 秒
+WAIT_BASE card=blue pose=(1.02528,0.828909) yaw=15.379deg vx=0 wz=0 err=0 odom=ok av=- 
+
+离开据点，前往终点
+NAV_GOAL card=blue pose=(1.02528,0.828909) yaw=15.379deg vx=0.72 wz=-1.17 err=-0.762588 odom=ok av=- 
+NAV_GOAL card=blue pose=(1.74441,0.674197) yaw=-28.7331deg vx=0.72 wz=-0.0110101 err=-0.00647656 odom=ok av=- 
+NAV_GOAL card=blue pose=(2.41835,0.269506) yaw=-30.1781deg vx=1 wz=-0.398818 err=0.451562 odom=ok av=- 
+NAV_GOAL card=blue pose=(3.06838,-0.0367053) yaw=-16.9117deg vx=0.624 wz=0.0498516 err=0.0293245 odom=ok av=- 
+NAV_GOAL card=blue pose=(3.45198,-0.237008) yaw=-48.3053deg vx=0.38 wz=-0.144384 err=0.603304 odom=ok av=OUT 
+NAV_GOAL card=blue pose=(3.792,-0.750705) yaw=-53.6521deg vx=1 wz=-0.218331 err=0.407813 odom=ok av=- 
+NAV_GOAL card=blue pose=(4.39459,-1.21649) yaw=-1.84357deg vx=0.43 wz=1.00504 err=0.0866025 odom=ok av=- 
+NAV_GOAL card=blue pose=(4.85339,-1.07597) yaw=1.09533deg vx=0.43 wz=-1.02823 err=-0.0210879 odom=ok av=OUT 
+NAV_GOAL card=blue pose=(5.24486,-1.22383) yaw=-24.3366deg vx=0.43 wz=0.613483 err=0.617713 odom=ok av=- 
+NAV_GOAL card=blue pose=(5.70952,-1.26935) yaw=13.8841deg vx=0.43 wz=0.326003 err=0.088868 odom=ok av=- 
+NAV_GOAL card=blue pose=(6.11435,-1.12427) yaw=19.8773deg vx=0.43 wz=-0.206037 err=-0.121198 odom=ok av=- 
+NAV_GOAL card=blue pose=(6.58242,-1.02962) yaw=2.70185deg vx=0.45218 wz=-0.0801656 err=-0.0471563 odom=ok av=- 
+
+到达终点，停车
+DONE card=blue pose=(6.82574,-1.02638) yaw=-0.243568deg vx=0 wz=0 err=0 odom=ok av=- 
+DONE card=blue pose=(6.82574,-1.02638) yaw=-0.243568deg vx=0 wz=0 err=0 odom=ok av=- 
