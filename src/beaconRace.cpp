@@ -103,13 +103,9 @@ static constexpr double CONE_MAX_ASPECT = 3.5;
 //     车抖/画龙 → 减小 SPIN_YAW、LOST_YAW；反应迟钝 → 适当增大。
 static constexpr double SPIN_YAW = 0.6;
 static constexpr double LOST_YAW = 1.0;   // 0.7->1.0：航向误差 40~57° 时改为「边走边转」，减少原地打转
-// ★★ 2026-11-26：据点之后全段速度 ×1.03（用户要求"从据点后整体速度提高3%"）。
-//    下面这几处、以及 GOAL_APPROACH_VX / DEPART_VX / MINEFIELD_VX_MAX / 三处硬编码遇锥限速
-//    （0.29→0.299、0.57→0.587、0.38→0.391）都已按 1.03 换算；vel_x_vision 在板上 cfg 里
-//    由 1.43 改为 1.473（不重新编译）。据点段(pos_p×距离、上限 vel_x_odom)未动。
-static constexpr double NEAR_VX_MAX = 0.443;   // 减速圈内速度上限（0.43×1.03）
-static constexpr double NEAR_VX_P = 1.159;    // 近终点距离比例系数（1.125×1.03）
-static constexpr double LOST_VX = 0.494;      // 丢线兜底速度（0.480×1.03）
+static constexpr double NEAR_VX_MAX = 0.43;   // 减速圈内速度上限（0.27->0.43：仅降到 0.43 即可，不必压到 0.27）
+static constexpr double NEAR_VX_P = 1.125;    // ×1.5（再乘 1.5，原 0.75）：近终点距离比例系数
+static constexpr double LOST_VX = 0.480;      // ×1.3：丢线兜底速度
 
 // ★ 终点入口收敛（按场地图：营地入口正对赛道，车应平着沿 +x 进入）
 //   速度再快 1.5 倍 → 收敛窗口与摆正时间同比例放大，否则会擦过目标点
@@ -131,7 +127,7 @@ static constexpr double GOAL_OVERSHOOT_TOL  = 0.06;  // 越过目标点此距离
 // ★ 接近段速度分区 / 出据点加速
 static constexpr double GOAL_SLOW_DIST   = 2.20;  // 蓝卡：距目标此距离内进入减速曲线
 static constexpr double GOAL_SLOW_DIST_RED = 2.60;  // 红卡：刹车更早（2.20->2.60，仅红卡）
-static constexpr double GOAL_APPROACH_VX = 0.824;  // 接近段速度，横向已对齐时使用（0.55->0.80）
+static constexpr double GOAL_APPROACH_VX = 0.80;  // 接近段速度，横向已对齐时使用（0.55->0.80）
 static constexpr double GOAL_LAT_GATE    = 0.10;  // 横向偏差超过此值则接近段降回 NEAR_VX_MAX（0.18 会让落点偏外 8cm，回退到 0.10）
 
 // ★ 红卡去据点更快（仅红卡，蓝卡保持 1.0）
@@ -154,7 +150,7 @@ static constexpr double OUTBOUND_GUARD_Y = 1.32;
 static constexpr double BASE_FACE_TOL  = 0.50;  // 据点到位允许的航向偏差(rad，约29°)，放宽以加快出发
 // ★ 出据点后的提速下限：刚离开据点时多为丢线状态(默认 0.37)，略抬高一点
 static constexpr double DEPART_X   = 2.40;  // 生效到 x 达到此值之前
-static constexpr double DEPART_VX  = 0.742;  // 该段速度下限(m/s)，0.65 -> 0.72（提高 1.1 倍）
+static constexpr double DEPART_VX  = 0.72;  // 该段速度下限(m/s)，0.65 -> 0.72（提高 1.1 倍）
 
 // ★ 出据点起步偏置：让车头朝赛道中央多偏一点，提前看清第一排中间的锥桶。
 //   蓝卡 0.18rad / 2.40m 实测正常；红卡同一设置会贴着中心线走、
@@ -185,7 +181,7 @@ static constexpr double MIDROW_RATE_GAIN = 1.30;  // 该区间避让速率倍率
 //   降到 1.15 m/s 后每帧 0.16m，同样 3 帧只需 0.49m，感知压力明显下降。
 static constexpr double MINEFIELD_X0 = 1.80;  // 雷区起点 x
 static constexpr double MINEFIELD_X1 = 5.20;  // 雷区终点 x
-static constexpr double MINEFIELD_VX_MAX = 1.03;  // 该区间巡线速度上限（1.15 -> 1.00：提前刹车，多留避让反应距离）
+static constexpr double MINEFIELD_VX_MAX = 1.00;  // 该区间巡线速度上限（1.15 -> 1.00：提前刹车，多留避让反应距离）
 // ★ 中段丢线提速（红蓝两卡同样处理）：中段航向误差常达 30~50°，丢线时只能走
 //   LOST_VX，中段因此被拖慢。仅在 x 落在该区间内把丢线速度提高，
 //   直线全速（vel_x_vision）本身不变。
@@ -1245,7 +1241,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 // 接近段：按接近速度跑；横向未对齐时压到 NEAR_VX_MAX 先收敛。
                 vx = GOAL_APPROACH_VX;
                 if (std::abs(dy) > GOAL_LAT_GATE) vx = std::min(vx, NEAR_VX_MAX);
-                if (cone_here) vx = std::min(vx, 0.299);
+                if (cone_here) vx = std::min(vx, 0.29);
                 if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
             } else {
                 // 营地内：完全保持原减速曲线
@@ -1267,7 +1263,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             double vis_err = track->mid_x - CENTER_X;
             double wz = -vis_err * cfg_.vis_wz_gain + cfg_.odom_blend * cfg_.yaw_p * yaw_err_cmd
                       + corridor_wz + avoid_wz;
-            double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.587) : cfg_.vel_x_vision;   // 巡线遇锥限速（0.57×1.03）
+            double vx = cone_here ? std::min(cfg_.vel_x_vision, 0.57) : cfg_.vel_x_vision;   // 巡线遇锥限速 ×1.3
             if (!cone_here && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
             // ★ 雷区限速：锥桶密集段的巡航速度压到 MINEFIELD_VX_MAX，
             //   换取避让反应距离（实测 1.43 m/s 下仍会撞到 1 个蓝锥）。
@@ -1284,7 +1280,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         // ★ 中段：丢线速度提高，压缩中间直线段耗时（红蓝两卡同样生效）
         if (vx > 0.0 && x_ > MID_X0 && x_ < MID_X1)
             vx *= MID_VX_GAIN;
-        if (cone_here) vx = std::min(vx, 0.391);   // 丢线遇锥限速（0.38×1.03）
+        if (cone_here) vx = std::min(vx, 0.38);   // 丢线遇锥限速 ×1.3
         if (!cone_here && vx > 0.0 && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
         send(vx, clampd(cfg_.yaw_p * yaw_err_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
         erro_ = yaw_err_cmd;
