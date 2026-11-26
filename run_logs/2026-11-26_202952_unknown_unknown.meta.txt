@@ -1,0 +1,12 @@
+run      : 2026-11-26_202952_unknown_unknown
+saved    : 2026-11-26 20:29:54
+source   : root@192.168.1.3:/home/root/run_logs/br_run.log
+binary   : md5 a25d3976559a1b6229b971498f744c59
+card     : unknown
+result   : unknown
+seconds  : 0
+nav_goal : 12 lines, 1 in-place spins
+max_vx   : 1.22009
+final    : DONE card=blue pose=(6.83562,-1.01736) yaw=-42.5582deg vx=0 wz=0 err=0 odom=ok sf=46.8663 av=- 
+error    : 0.090 m
+note     : 
