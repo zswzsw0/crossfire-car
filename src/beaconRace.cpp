@@ -204,6 +204,10 @@ static constexpr double RED_ROW2_RAMP = 0.30;  // 两端过渡距离(m)
 static constexpr double RED_ROW2_DY   = 0.30;  // 往 +y（红卡那侧边界）偏移(m)，0.15 -> 0.30：第二排转向幅度不足
 // ★ 第三排遇蓝锥朝中线时，起转速率再乘这个倍数（1.0=不额外放大）
 static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
+// ★ 红卡在第三排遇蓝锥时的偏转上限(rad)：0.65 -> 0.35（约 20°）
+//   实测红卡一进第三排就满舵朝中线横穿，让开最外侧那个、撞上往里数第二个。
+//   限幅后改成小角度侧移，留出调整余地。仅红卡生效，蓝卡仍用 AVOID_YAW_MAX。
+static constexpr double RED_THIRD_ROW_YAW_MAX = 0.35;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
 static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
 // ★ 红卡：跑到红色据点的运行时间延长（2026-11-24；只加时间，不改速度）
@@ -1171,6 +1175,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             else avoid_yaw_ -= std::copysign(AVOID_YAW_RECOVER, avoid_yaw_);
         }
         avoid_yaw_ = clampd(avoid_yaw_, -AVOID_YAW_MAX, AVOID_YAW_MAX);
+        // ★ 红卡第三排遇蓝锥：偏转限幅（2026-11-26），避免一帧满舵横穿整排锥
+        if (card_color_ == "red" && avoid_blue != nullptr
+            && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
+            avoid_yaw_ = clampd(avoid_yaw_, -RED_THIRD_ROW_YAW_MAX, RED_THIRD_ROW_YAW_MAX);
+        }
         const double avoid_wz = clampd(avoid_yaw_ * 2.0, -cfg_.vel_z_max, cfg_.vel_z_max);
         if (dist < cfg_.near_goal_dist) {
             // ★ 入口收敛：越接近终点，越把航向往 +x 拉，形成贴图那样的“平着进营地”。
