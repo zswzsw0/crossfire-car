@@ -1,4 +1,4 @@
-/* ============================================================================
+﻿/* ============================================================================
  *  beaconRace.cpp  —— 参数改动指南（注释版）
  *
  *  本文件由板子上的原版源码复制而来，代码逻辑一字未改，只在关键位置插入注释。
@@ -214,8 +214,8 @@ static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
 static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 0.15 -> 0.25（再延长 0.1s）
 // ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
-static constexpr double CAMP_SPEED_GAIN     = 1.25;
-static constexpr double CAMP_SPEED_GAIN_RED = 1.44;  // 红卡进营地提速（1.20 -> 1.44：要求再提 1.2 倍）
+static constexpr double CAMP_SPEED_GAIN     = 1.50;  // 1.25 -> 1.50（要求再提 1.2 倍）
+static constexpr double CAMP_SPEED_GAIN_RED = 1.73;  // 1.44 -> 1.73（要求再提 1.2 倍，1.728 取 1.73）
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
 static constexpr double CAMP_LAT_DEADBAND   = 0.12;
@@ -595,6 +595,11 @@ public:
 
             auto now = std::chrono::steady_clock::now();
             if (now - last_log > std::chrono::seconds(1)) {
+                const double dt_log = std::chrono::duration<double>(now - last_log).count();
+                // ★ 底盘数据到达帧率诊断（2026-11-26）：ODOM_DT 固定 0.02，若实际帧率不是 50Hz
+                //   位移会被按比例放大/缩小。用这个 sf 值核对。
+                const double sf = (sf_frames_ - sf_frames_last_) / dt_log;
+                sf_frames_last_ = sf_frames_;
                 last_log = now;
                 std::cout << phaseName(phase_)
                           << " card=" << (card_color_.empty() ? "-" : card_color_)
@@ -603,6 +608,7 @@ public:
                           << " vx=" << cmd_vx_ << " wz=" << cmd_wz_
                           << " err=" << erro_
                           << " odom=" << (have_odom_ ? "ok" : "wait")
+                          << " sf=" << sf
                           << " av=" << (avoiding_ ? (avoid_inner_ ? "IN" : "OUT") : "-")
                           << " " << card_label_ << "\n";
             }
@@ -642,6 +648,9 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
 
     bool have_odom_ = false;
     uint64_t last_seq_ = 0;
+    // ★ 底盘数据帧率诊断（2026-11-26）
+    uint64_t sf_frames_ = 0;       // 累计收到的底盘帧数
+    double   sf_frames_last_ = 0;  // 上一次打印时的计数
     double x_ = 0, y_ = 0, yaw_ = 0;
     double gyro_bias_ = 0, bias_sum_ = 0;
     int bias_n_ = 0;
@@ -713,6 +722,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         uint64_t n = seq - last_seq_;
         last_seq_ = seq;
         if (n == 0) return;
+        sf_frames_ += n;   // ★ 帧率诊断计数
         SensorData sd = getLatestSensor();
 
         if (phase_ == Phase::WaitCard) {
