@@ -1,0 +1,12 @@
+run      : 2026-11-26_180404_unknown_TIMEOUT_900s
+saved    : 2026-11-26 18:04:05
+source   : root@192.168.1.3:/home/root/run_logs/br_run.log
+binary   : md5 7c1514d5734bd228118d37366d7b94b4
+card     : unknown
+result   : TIMEOUT
+seconds  : 900
+nav_goal : 0 lines, 0 in-place spins
+max_vx   : 1.1508
+final    : DONE card=blue pose=(0.374009,0.209847) yaw=36.3559deg vx=0 wz=0 err=0 odom=ok sf=0 av=- 
+error    : 6.652 m
+note     : watcher run in report D:\穿越火线\run_report.log
