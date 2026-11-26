@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
  *  beaconRace.cpp  —— 参数改动指南（注释版）
  *
  *  本文件由板子上的原版源码复制而来，代码逻辑一字未改，只在关键位置插入注释。
@@ -138,6 +138,11 @@ static constexpr double RED_THIRD_ROW_EXTRA_PX = 28.0;  // 18->28：第三排蓝
 // ★ 蓝卡在第三排遇蓝锥的判定带宽额外放宽(px)：提前一点识别（2026-11-24）
 static constexpr double BLUE_THIRD_ROW_EXTRA_PX = 40.0;  // 36 -> 40：再提前一点点
 static constexpr double BLUE_EARLY_ROW_X0 = 4.70;  // 蓝卡蓝锥提前识别的起点，5.00 -> 4.70
+// ★ 蓝卡第二排（中间 3 个锥桶那排）也提前一点点起转（2026-11-26 用户反馈"转向晚了一点点差一点点撞"）：
+//   第二排原本用基础判定带宽 60px，锥桶要几乎贴到行进线才起转；这里加 20px（=第三排 40px 的一半，
+//   用户要求"提前一点点，不要提前太远"）。只在 x∈(2.85, 4.30) 生效，与第三排窗口(4.70~6.30)不重叠。
+static constexpr double BLUE_ROW2_EXTRA_PX = 20.0;
+static constexpr double BLUE_ROW2_EARLY_X0 = 2.85;
 // ★ 出界保护阈值(m)：|y| 超过它就禁止继续往外避让/强制回场
 //   场地总宽 4m → y∈[-2,+2]；正常路线第三排峰值约 -1.28，故设 1.32：
 //   比正常路径略靠外，但只要再多偏一点就立刻干预（留出里程计误差的余量）。
@@ -969,6 +974,9 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                     thr += RED_THIRD_ROW_EXTRA_PX;
                 } else if (card_color_ == "blue" && x_ > BLUE_EARLY_ROW_X0 && x_ < THIRD_ROW_X1) {
                     thr += BLUE_THIRD_ROW_EXTRA_PX;
+                } else if (card_color_ == "blue" && x_ > BLUE_ROW2_EARLY_X0 && x_ < RED_ROW2_X1) {
+                    // ★ 第二排提前一点点起转（仅蓝卡，2026-11-26）
+                    thr += BLUE_ROW2_EXTRA_PX;
                 }
             }
             if (std::abs(b.cx - ref) <= thr) on.push_back(b);
