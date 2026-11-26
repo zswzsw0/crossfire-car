@@ -195,8 +195,8 @@ static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角
 static constexpr double THIRD_ROW_X0   = 5.00;  // 区间起点 x(m)
 static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
-static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
-static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
+static constexpr double THIRD_ROW_DY_BLUE = 0.30;  // 蓝卡：往中线(+y)偏移(m)，0.22 -> 0.30（离右侧锥更远）
+static constexpr double THIRD_ROW_DY_RED  = 0.33;  // 红卡：往中线(-y)偏移(m)，0.25 -> 0.33（离最外侧锥更远）
 // ★ 红卡第二排：往该侧的场地边界(+y)偏（2026-11-24，蓝卡不受影响）
 static constexpr double RED_ROW2_X0   = 3.00;  // 第二排区间起点 x(m)
 static constexpr double RED_ROW2_X1   = 4.30;  // 第二排区间终点 x(m)
@@ -215,10 +215,13 @@ static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 0.15 -> 0.25（再延长
 // ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
 static constexpr double CAMP_SPEED_GAIN     = 1.25;
-static constexpr double CAMP_SPEED_GAIN_RED = 1.20;  // 红卡进营地提速 1.2 倍
+static constexpr double CAMP_SPEED_GAIN_RED = 1.44;  // 红卡进营地提速（1.20 -> 1.44：要求再提 1.2 倍）
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
 static constexpr double CAMP_LAT_DEADBAND   = 0.12;
+// ★ 终点前取消死区(m)：这段只做收敛不做直行，保证最后落到营地对称轴上
+//   （2026-11-26：蓝卡停在 -1.005、目标 -1.08，差 7.5cm 就是被 0.12 死区挡住的）
+static constexpr double CAMP_FINAL_ALIGN_DIST = 0.80;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -1197,8 +1200,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 //   已到中心线附近（|dy| < CAMP_LAT_DEADBAND）→ 保持 +x 直行。
                 //   保护：|dy| 超过 CAMP_MAX_LAT 说明偏差过大（被撞偏/航向漂了），
                 //   此时代码不追中心点，避免像 20:49 那轮越过目标后掉头冲出场。
+                //   ★ 终点前 CAMP_FINAL_ALIGN_DIST 内取消死区：这段只收敛，保证
+                //     最后落在营地对称轴上（2026-11-26 实测被死区挡在 -1.005）。
                 if (std::abs(dy) < CAMP_MAX_LAT) {
-                    yaw_cmd = (std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
+                    const bool final_align = (dist < CAMP_FINAL_ALIGN_DIST);
+                    yaw_cmd = (!final_align && std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
                 }
             }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
