@@ -138,11 +138,6 @@ static constexpr double RED_THIRD_ROW_EXTRA_PX = 28.0;  // 18->28：第三排蓝
 // ★ 蓝卡在第三排遇蓝锥的判定带宽额外放宽(px)：提前一点识别（2026-11-24）
 static constexpr double BLUE_THIRD_ROW_EXTRA_PX = 40.0;  // 36 -> 40：再提前一点点
 static constexpr double BLUE_EARLY_ROW_X0 = 4.70;  // 蓝卡蓝锥提前识别的起点，5.00 -> 4.70
-// ★ 蓝卡第二排（中间 3 个锥桶那排）也提前一点点起转（2026-11-26 用户反馈"转向晚了一点点差一点点撞"）：
-//   第二排原本用基础判定带宽 60px，锥桶要几乎贴到行进线才起转；这里加 20px（=第三排 40px 的一半，
-//   用户要求"提前一点点，不要提前太远"）。只在 x∈(2.85, 4.30) 生效，与第三排窗口(4.70~6.30)不重叠。
-static constexpr double BLUE_ROW2_EXTRA_PX = 20.0;
-static constexpr double BLUE_ROW2_EARLY_X0 = 2.85;
 // ★ 出界保护阈值(m)：|y| 超过它就禁止继续往外避让/强制回场
 //   场地总宽 4m → y∈[-2,+2]；正常路线第三排峰值约 -1.28，故设 1.32：
 //   比正常路径略靠外，但只要再多偏一点就立刻干预（留出里程计误差的余量）。
@@ -200,8 +195,8 @@ static constexpr double CORRIDOR_GAIN    = 1.8;   // 超出走廊后的回归角
 static constexpr double THIRD_ROW_X0   = 5.00;  // 区间起点 x(m)
 static constexpr double THIRD_ROW_X1   = 6.30;  // 区间终点 x(m)
 static constexpr double THIRD_ROW_RAMP = 0.30;  // 两端过渡距离(m)，避免目标点突跳
-static constexpr double THIRD_ROW_DY_BLUE = 0.30;  // 蓝卡：往中线(+y)偏移(m)，0.22 -> 0.30（离右侧锥更远）
-static constexpr double THIRD_ROW_DY_RED  = 0.33;  // 红卡：往中线(-y)偏移(m)，0.25 -> 0.33（离最外侧锥更远）
+static constexpr double THIRD_ROW_DY_BLUE = 0.22;  // 蓝卡：往中线(+y)偏移(m)，0.15 -> 0.22
+static constexpr double THIRD_ROW_DY_RED  = 0.25;  // 红卡：往中线(-y)偏移(m)，红卡实测峰值 1.265（目标 0.89），故略大于蓝卡
 // ★ 红卡第二排：往该侧的场地边界(+y)偏（2026-11-24，蓝卡不受影响）
 static constexpr double RED_ROW2_X0   = 3.00;  // 第二排区间起点 x(m)
 static constexpr double RED_ROW2_X1   = 4.30;  // 第二排区间终点 x(m)
@@ -209,24 +204,17 @@ static constexpr double RED_ROW2_RAMP = 0.30;  // 两端过渡距离(m)
 static constexpr double RED_ROW2_DY   = 0.30;  // 往 +y（红卡那侧边界）偏移(m)，0.15 -> 0.30：第二排转向幅度不足
 // ★ 第三排遇蓝锥朝中线时，起转速率再乘这个倍数（1.0=不额外放大）
 static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
-// ★ 红卡在第三排遇蓝锥时的偏转上限(rad)：0.65 -> 0.35（约 20°）
-//   实测红卡一进第三排就满舵朝中线横穿，让开最外侧那个、撞上往里数第二个。
-//   限幅后改成小角度侧移，留出调整余地。仅红卡生效，蓝卡仍用 AVOID_YAW_MAX。
-static constexpr double RED_THIRD_ROW_YAW_MAX = 0.35;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
 static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
 // ★ 红卡：跑到红色据点的运行时间延长（2026-11-24；只加时间，不改速度）
 static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 0.15 -> 0.25（再延长 0.1s）
 // ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
-static constexpr double CAMP_SPEED_GAIN     = 1.50;  // 1.25 -> 1.50（要求再提 1.2 倍）
-static constexpr double CAMP_SPEED_GAIN_RED = 1.73;  // 1.44 -> 1.73（要求再提 1.2 倍，1.728 取 1.73）
+static constexpr double CAMP_SPEED_GAIN     = 1.25;
+static constexpr double CAMP_SPEED_GAIN_RED = 1.20;  // 红卡进营地提速 1.2 倍
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
 static constexpr double CAMP_LAT_DEADBAND   = 0.12;
-// ★ 终点前取消死区(m)：这段只做收敛不做直行，保证最后落到营地对称轴上
-//   （2026-11-26：蓝卡停在 -1.005、目标 -1.08，差 7.5cm 就是被 0.12 死区挡住的）
-static constexpr double CAMP_FINAL_ALIGN_DIST = 0.80;
 static constexpr double CONE_PATH_HALF_W = 60.0;  // 锥桶横向偏离行进线的基础阈值(px)，实际按远近自动放大
 
 static std::atomic<bool> g_running{true};
@@ -600,11 +588,6 @@ public:
 
             auto now = std::chrono::steady_clock::now();
             if (now - last_log > std::chrono::seconds(1)) {
-                const double dt_log = std::chrono::duration<double>(now - last_log).count();
-                // ★ 底盘数据到达帧率诊断（2026-11-26）：ODOM_DT 固定 0.02，若实际帧率不是 50Hz
-                //   位移会被按比例放大/缩小。用这个 sf 值核对。
-                const double sf = (sf_frames_ - sf_frames_last_) / dt_log;
-                sf_frames_last_ = sf_frames_;
                 last_log = now;
                 std::cout << phaseName(phase_)
                           << " card=" << (card_color_.empty() ? "-" : card_color_)
@@ -613,7 +596,6 @@ public:
                           << " vx=" << cmd_vx_ << " wz=" << cmd_wz_
                           << " err=" << erro_
                           << " odom=" << (have_odom_ ? "ok" : "wait")
-                          << " sf=" << sf
                           << " av=" << (avoiding_ ? (avoid_inner_ ? "IN" : "OUT") : "-")
                           << " " << card_label_ << "\n";
             }
@@ -653,9 +635,6 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
 
     bool have_odom_ = false;
     uint64_t last_seq_ = 0;
-    // ★ 底盘数据帧率诊断（2026-11-26）
-    uint64_t sf_frames_ = 0;       // 累计收到的底盘帧数
-    double   sf_frames_last_ = 0;  // 上一次打印时的计数
     double x_ = 0, y_ = 0, yaw_ = 0;
     double gyro_bias_ = 0, bias_sum_ = 0;
     int bias_n_ = 0;
@@ -727,7 +706,6 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         uint64_t n = seq - last_seq_;
         last_seq_ = seq;
         if (n == 0) return;
-        sf_frames_ += n;   // ★ 帧率诊断计数
         SensorData sd = getLatestSensor();
 
         if (phase_ == Phase::WaitCard) {
@@ -974,9 +952,6 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                     thr += RED_THIRD_ROW_EXTRA_PX;
                 } else if (card_color_ == "blue" && x_ > BLUE_EARLY_ROW_X0 && x_ < THIRD_ROW_X1) {
                     thr += BLUE_THIRD_ROW_EXTRA_PX;
-                } else if (card_color_ == "blue" && x_ > BLUE_ROW2_EARLY_X0 && x_ < RED_ROW2_X1) {
-                    // ★ 第二排提前一点点起转（仅蓝卡，2026-11-26）
-                    thr += BLUE_ROW2_EXTRA_PX;
                 }
             }
             if (std::abs(b.cx - ref) <= thr) on.push_back(b);
@@ -1143,14 +1118,6 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         if (un < 1e-6) un = 1.0;
         ux /= un; uy /= un;
         double cross = -(x_ - base_x_) * uy + (y_ - base_y_) * ux;
-        // ★★ 第三排及之后：走廊基准改成"营地对称轴" y=goal_y（2026-11-26）
-        //   原因：base→goal 是斜线，在 x=5.34 处只有 y=-0.55，而营地对称轴是 -1.08。
-        //   实测蓝卡在第三排被避让推到 y=-1.30 时，走廊把"离斜线偏了 0.75m"当成偏左，
-        //   以 corridor_wz=+0.54 朝 +y(左)猛拉，叠加航向后 wz 打满 1.17，把车甩到 -0.51，
-        //   再靠 -1.17 拉回来 —— 就是用户看到的"出第三排先左偏、绕一圈才回营地"。
-        //   改成以营地对称轴为基准后：|y-goal_y|<0.45 时走廊完全不介入，
-        //   只有真正偏离营地轴超过 0.45m 才纠偏，方向永远指向营地中心。
-        if (x_ > THIRD_ROW_X0) cross = y_ - goal_y_;
         double corridor_wz = 0.0;
         double over = std::abs(cross) - ((card_color_ == "blue") ? CORRIDOR_HALF_W_BLUE : CORRIDOR_HALF_W_RED);
         if (over > 0)
@@ -1204,31 +1171,6 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             else avoid_yaw_ -= std::copysign(AVOID_YAW_RECOVER, avoid_yaw_);
         }
         avoid_yaw_ = clampd(avoid_yaw_, -AVOID_YAW_MAX, AVOID_YAW_MAX);
-        // ★ 出第三排后立刻清掉残余避让偏置（2026-11-26，仅蓝卡）：
-        //   实测蓝卡出第三排时 avoid_yaw_ 还停在 +0.65rad（朝中线/左侧），而回正只有
-        //   0.040rad/帧（约 6Hz → 0.24rad/s），要 2.7s 才归零；这 2.7s 里车带着 +37° 的
-        //   偏置以 0.645m/s 跑约 1.7m，把营地模式"朝营地对称轴"的 -0.42rad/s 完全盖住
-        //   （净 +0.75rad/s 向左），于是出第三排后大角度左偏、没进营地、最后冲出界。
-        //   这里只在 x>THIRD_ROW_X1 且路线上确实没有锥时才清零，前三排避让逻辑不受影响。
-        if (card_color_ == "blue" && !cone_here && x_ > THIRD_ROW_X1) avoid_yaw_ = 0.0;
-        // ★★ 已经到/超过营地对称轴、路线上又没锥时，禁止再"朝中线"内偏（2026-11-26）
-        //   承接上面那条：判据不能只看"出了第三排"。实测 18:44 轮最后一个蓝锥在 x≈5.1 就过去了，
-        //   之后 avoid_yaw_ 仍停在 +0.65rad 慢慢回零：从 (5.19,-1.286) 起以 0.24rad/s 连续 2.7s
-        //   把车甩到 (5.59,+41.7°，y=-0.86)，再花 0.6s 用 -1.17 拉回 —— 这就是用户反复反馈的
-        //   "出第三排先左偏、绕一圈才回营地"。
-        //   蓝卡内偏是 +y：当 y 已经比 goal_y 更靠外（更负）还往 +y 转，纯属多余，直接清零；
-        //   红卡镜像（内偏 -y，y 比 goal_y 更大时清零）。有锥在路线上时不受影响，避让照常。
-        if (!cone_here && x_ > THIRD_ROW_X0) {
-            const bool inward = (card_color_ == "blue")
-                                    ? (avoid_yaw_ > 0.0 && y_ < goal_y_)
-                                    : (avoid_yaw_ < 0.0 && y_ > goal_y_);
-            if (inward) avoid_yaw_ = 0.0;
-        }
-        // ★ 红卡第三排遇蓝锥：偏转限幅（2026-11-26），避免一帧满舵横穿整排锥
-        if (card_color_ == "red" && avoid_blue != nullptr
-            && x_ > THIRD_ROW_X0 && x_ < THIRD_ROW_X1) {
-            avoid_yaw_ = clampd(avoid_yaw_, -RED_THIRD_ROW_YAW_MAX, RED_THIRD_ROW_YAW_MAX);
-        }
         const double avoid_wz = clampd(avoid_yaw_ * 2.0, -cfg_.vel_z_max, cfg_.vel_z_max);
         if (dist < cfg_.near_goal_dist) {
             // ★ 入口收敛：越接近终点，越把航向往 +x 拉，形成贴图那样的“平着进营地”。
@@ -1246,11 +1188,8 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 //   已到中心线附近（|dy| < CAMP_LAT_DEADBAND）→ 保持 +x 直行。
                 //   保护：|dy| 超过 CAMP_MAX_LAT 说明偏差过大（被撞偏/航向漂了），
                 //   此时代码不追中心点，避免像 20:49 那轮越过目标后掉头冲出场。
-                //   ★ 终点前 CAMP_FINAL_ALIGN_DIST 内取消死区：这段只收敛，保证
-                //     最后落在营地对称轴上（2026-11-26 实测被死区挡在 -1.005）。
                 if (std::abs(dy) < CAMP_MAX_LAT) {
-                    const bool final_align = (dist < CAMP_FINAL_ALIGN_DIST);
-                    yaw_cmd = (!final_align && std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
+                    yaw_cmd = (std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
                 }
             }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
