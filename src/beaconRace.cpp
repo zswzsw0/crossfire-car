@@ -238,6 +238,10 @@ static constexpr double CAMP_EXIT_VX_MAX     = 1.15;  // 营地段速度绝对�
 static constexpr double CAMP_BOOST_X = 6.10;
 // ★ 距目标这么近就锁死 +x（不再瞄准目标点）：防止 atan2(dy,dx) 在终点附近奇异化后甩头出界。
 static constexpr double CAMP_AXIS_HOLD_DIST = 0.28;
+// ★ 营地段（x>CAMP_BOOST_X）朝对称轴收敛时的航向限幅，防大角度甩头
+static constexpr double CAMP_AIM_MAX = 0.45;   // rad，约 26°
+// ★ 营地段转向速度增益（用户 2026-11-28："转向速度加快一点点"）
+static constexpr double CAMP_STEER_GAIN = 1.20;
 static constexpr double CAMP_BOOST_FALLBACK_X = 6.55; // 已弃用的姿态兜底门（保留常量避免编译告警）
 static constexpr double CAMP_BOOST_YAW_TOL = 0.35;    // 已弃用：姿态门已取消
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
@@ -1243,6 +1247,13 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                     yaw_cmd = (!final_align && std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
                 }
             }
+            // ★ 营地段（x>CAMP_BOOST_X）强制"朝对称轴收敛"（2026-11-28）：
+            //   上面的入口摆平项 k 会把航向拉成平行 +x（k 最大 0.85），横向没对齐时
+            //   车就一路平行走、不往轴线上收，现场表现"没有朝营地对称轴行驶"。
+            //   这里在营地段直接改用"瞄准轴上的目标点"，并限幅防甩头。
+            if (camp_speed) {
+                yaw_cmd = clampd(yaw_err, -CAMP_AIM_MAX, CAMP_AIM_MAX);
+            }
             // ★ 终点极近处禁止"瞄准目标点"（2026-11-28 修复甩头出界）：
             //   当 dx、dy 同时变小时 atan2(dy,dx) 会剧烈摆动（dx→0 时趋向 ±90°），
             //   实测红卡已经进营地还被这一个奇异点甩向左、直接出界。
@@ -1279,7 +1290,9 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                               << " vx=" << vx << std::endl;
                 }
             }
-            send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
+            double wz = cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz;
+            if (camp_speed) wz *= CAMP_STEER_GAIN;   // ★ 营地段转向快一点点
+            send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = yaw_cmd;
             return false;
         }
