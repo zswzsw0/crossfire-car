@@ -1221,7 +1221,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 k = clampd(1.0 - dist / ENTRY_ALIGN_DIST, 0.0, 1.0) * ENTRY_ALIGN_W;
             }
             double yaw_cmd = (1.0 - k) * yaw_err + k * yaw_to_x;
-            const bool camp_mode = updateCampMode();
+            // ★ 2026-11-28：出第三排末端（x>THIRD_ROW_X1）立即生效，不再等 CAMP_MODE_DELAY_SEC。
+            //   用户要求"一出第三排锥桶就立即加速"；加速和车头摆正必须同时开始，
+            //   否则会以旧航向斜着加速切进营地。
+            const bool camp_mode = updateCampMode() || (x_ > THIRD_ROW_X1);
             if (camp_mode) {
                 // ★ 进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：
                 //   横向偏差适中 → 朝营地中心轴 (goal_x, goal_y) 开；
