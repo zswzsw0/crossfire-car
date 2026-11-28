@@ -226,19 +226,19 @@ static constexpr double CAMP_SPEED_GAIN_RED = 1.73;  // 1.44 -> 1.73（要求再
 //   实测营地段原本 0.55 m/s，×2 后约 1.10 m/s；用绝对上限兜住，
 //   防止"接近段 0.80×增益"那一路被放大到 2 m/s 以上冲出场。
 static constexpr double CAMP_EXIT_SPEED_GAIN = 2.00;  // 营地段速度再乘 2 倍
-static constexpr double CAMP_EXIT_VX_MAX     = 1.15;  // 营地段速度绝对上限(m/s)
+static constexpr double CAMP_EXIT_VX_MAX     = 1.30;  // 营地段速度绝对上限(m/s)，1.15 -> 1.30（现场仍觉偏慢）
 // ★ 营地段"车头朝营地对称轴"的方案已撤销（2026-11-28 实测会让车猛地甩向场地中间），
 //   航向恢复为验证过的 v2.5 逻辑：横向偏差在闸门内才追中心点，否则继续瞄准目标点。
 // ★ 提速段终点前收油：距离 0.55 m 起线性回收，0.20 m 时完全收回为 1 倍，
 //   避免 1.15 m/s 在最后 0.6 m 内刹不住冲过目标点。
-static constexpr double CAMP_BOOST_TAPER_D0 = 0.20;  // 完全收回的距离(m)
-static constexpr double CAMP_BOOST_TAPER_D1 = 0.55;  // 开始收回的距离(m)
-// ★ 提速触发条件里的"已对准营地对称轴"：车头与 +x 轴的夹角小于这个值才算转正，
-//   转正那一刻立即加速（用户 2026-11-28 要求：转向完成、方向对准就直接加速）。
-static constexpr double CAMP_BOOST_YAW_TOL = 0.22;  // rad，约 12.6°
+// ★ 提速门见 camp_speed（出第三排 + 车头对准对称轴）
+// ★ 提速触发条件里的"已对准营地对称轴"：车头与 +x 轴夹角小于这个值即视为转正，
+//   转正那一刻立即加速（用户 2026-11-28：转向完成、方向对准就直接加速）。
+static constexpr double CAMP_BOOST_YAW_TOL = 0.35;    // rad，约 20°
+static constexpr double CAMP_BOOST_FALLBACK_X = 6.55; // 过了这个 x 还没转正也照样加速（兜底）
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
-static constexpr double CAMP_LAT_DEADBAND   = 0.12;
+static constexpr double CAMP_LAT_DEADBAND   = 0.04;  // 0.12 -> 0.04：更贴营地对称轴中心线
 // ★ 终点前取消死区(m)：这段只做收敛不做直行，保证最后落到营地对称轴上
 //   （2026-11-26：蓝卡停在 -1.005、目标 -1.08，差 7.5cm 就是被 0.12 死区挡住的）
 static constexpr double CAMP_FINAL_ALIGN_DIST = 0.80;
@@ -1230,10 +1230,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             // ★ 2026-11-28：航向恢复验证过的 v2.5 逻辑（带 0.3s 延时 + 0.45m 闸门）。
             //   之前两版"出第三排立刻摆正/朝轴前瞻"实测会把车猛地甩向场地中间，已撤销。
             const bool camp_mode = updateCampMode();
-            // ★ 提速门（2026-11-28 用户要求）：出第三排 + **车头已经转正、对准营地对称轴**（+x）
-            //   的那一刻立即加速，不等营地延时；还没转正前不加速，避免边打方向边窜。
+            // ★ 提速门（2026-11-28 用户要求）：出第三排 + 车头转正对准营地对称轴，那一刻立即加速；
+            //   兜底：拖到 x>CAMP_BOOST_FALLBACK_X 还没完全转正也照样加速，避免一路 0.55 磨到底。
             const bool aligned_to_axis = (std::abs(yaw_to_x) < CAMP_BOOST_YAW_TOL);
-            const bool camp_speed = (x_ > THIRD_ROW_X1) && aligned_to_axis;
+            const bool camp_speed = (x_ > THIRD_ROW_X1)
+                                    && (aligned_to_axis || x_ > CAMP_BOOST_FALLBACK_X);
             if (camp_mode) {
                 if (std::abs(dy) < CAMP_MAX_LAT) {
                     const bool final_align = (dist < CAMP_FINAL_ALIGN_DIST);
@@ -1255,11 +1256,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 // 营地内：完全保持原减速曲线
                 vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);
             }
-            if (camp_speed) {   // ★ 出第三排立即提速：原倍率 × 2，带终点前收油 + 绝对上限（2026-11-28）
-                const double taper = clampd((dist - CAMP_BOOST_TAPER_D0)
-                                            / (CAMP_BOOST_TAPER_D1 - CAMP_BOOST_TAPER_D0), 0.0, 1.0);
-                const double boost = 1.0 + (CAMP_EXIT_SPEED_GAIN - 1.0) * taper;
-                vx *= ((card_color_ == "blue") ? CAMP_SPEED_GAIN : CAMP_SPEED_GAIN_RED) * boost;
+            if (camp_speed) {   // ★ 出第三排立即提速：原倍率 × 2（2026-11-28）
+                // 不再额外"收油"：减速曲线 vx=1.125·d 本身已把末段压下来，
+                // 上一版从 d=0.55m 就开始回收，等于刚提速就被削掉，现场觉得"还不够快"。
+                vx *= ((card_color_ == "blue") ? CAMP_SPEED_GAIN : CAMP_SPEED_GAIN_RED)
+                      * CAMP_EXIT_SPEED_GAIN;
                 vx = std::min(vx, CAMP_EXIT_VX_MAX);
                 // ★ 第一次进入提速段时打印一行，方便现场直接看到"哪一刻开始提速"
                 if (!camp_boost_reported_) {
