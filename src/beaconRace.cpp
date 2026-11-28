@@ -46,6 +46,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <stdexcept>
 #include <fstream>
 #include <iostream>
@@ -56,6 +57,8 @@
 
 #include <opencv2/opencv.hpp>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "camera.hpp"
 #include "carProtocol.hpp"
@@ -489,6 +492,53 @@ static std::string exeDir()
     auto p = s.rfind('/');
     return p == std::string::npos ? std::string(".") : s.substr(0, p);
 }
+
+// ★ 自动日志（2026-11-28）：手敲 ./beaconRace 运行时输出只打在屏幕上、事后无从分析，
+//   这里把 stdout 同时"抄"一份到 run_logs/auto_<时间>.log（任何启动方式都写）。
+namespace {
+class TeeBuf : public std::streambuf {
+public:
+    TeeBuf(std::streambuf* a, std::streambuf* b) : a_(a), b_(b) {}
+protected:
+    int overflow(int c) override {
+        if (c == EOF) return 0;
+        a_->sputc(static_cast<char>(c));
+        b_->sputc(static_cast<char>(c));
+        return c;
+    }
+    std::streamsize xsputn(const char* s, std::streamsize n) override {
+        a_->sputn(s, n);
+        b_->sputn(s, n);
+        return n;
+    }
+    int sync() override { a_->pubsync(); b_->pubsync(); return 0; }
+private:
+    std::streambuf* a_;   // 终端
+    std::streambuf* b_;   // 日志文件
+};
+
+std::ofstream* g_autoLog = nullptr;      // 故意不释放：生命周期要长于 cout
+std::string    g_autoLogPath;
+
+// 返回日志路径；失败返回空串。
+static std::string startAutoLog(bool force = true)
+{
+    if (!force && !::isatty(STDOUT_FILENO)) return std::string();
+    const std::string dir = exeDir() + "/run_logs";
+    ::mkdir(dir.c_str(), 0755);          // 已存在时返回 -1，忽略
+    char stamp[32] = {0};
+    std::time_t t = std::time(nullptr);
+    std::tm tmv{};
+    localtime_r(&t, &tmv);
+    std::strftime(stamp, sizeof(stamp), "%Y%m%d_%H%M%S", &tmv);
+    g_autoLogPath = dir + "/auto_" + stamp + ".log";
+    g_autoLog = new std::ofstream(g_autoLogPath.c_str(), std::ios::out | std::ios::trunc);
+    if (!g_autoLog || !g_autoLog->good()) { delete g_autoLog; g_autoLog = nullptr; return std::string(); }
+    std::cout.rdbuf(new TeeBuf(std::cout.rdbuf(), g_autoLog->rdbuf()));
+    std::cout << "日志文件: " << g_autoLogPath << std::endl;
+    return g_autoLogPath;
+}
+}  // namespace
 
 static void clampHue(std::array<int, 6>& h)
 {
@@ -1686,6 +1736,8 @@ int main(int argc, char** argv)
 //     第 1050 行：--config 指定的文件            ← 优先级最高
 //   「改了 cfg 没反应」十有八九是程序所在目录那份把它盖住了。
 //   排查：在板子上分别 ls -l /home/root/beacon_race.cfg 和当前目录下的同名文件。
+    // ★ 先开自动日志，后面所有输出（含"已读取配置"）都会同时落盘（仅终端运行时）
+    startAutoLog();
     loadConfigFile(exeDir() + "/beacon_race.cfg", cfg, false);
     loadConfigFile("beacon_race.cfg", cfg, false);
     if (!config_arg.empty() && !loadConfigFile(config_arg, cfg, true)) return 1;
