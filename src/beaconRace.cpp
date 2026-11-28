@@ -236,6 +236,8 @@ static constexpr double CAMP_EXIT_VX_MAX     = 1.15;  // 营地段速度绝对�
 //   6.10 仍在第三排末端之前一点点，但此时车已经在往外走了；如果现场发现擦到最后一个锥，
 //   这个值要往回加（例如 6.20）。
 static constexpr double CAMP_BOOST_X = 6.10;
+// ★ 距目标这么近就锁死 +x（不再瞄准目标点）：防止 atan2(dy,dx) 在终点附近奇异化后甩头出界。
+static constexpr double CAMP_AXIS_HOLD_DIST = 0.28;
 static constexpr double CAMP_BOOST_FALLBACK_X = 6.55; // 已弃用的姿态兜底门（保留常量避免编译告警）
 static constexpr double CAMP_BOOST_YAW_TOL = 0.35;    // 已弃用：姿态门已取消
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
@@ -1232,15 +1234,21 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             // ★ 2026-11-28：航向恢复验证过的 v2.5 逻辑（带 0.3s 延时 + 0.45m 闸门）。
             //   之前两版"出第三排立刻摆正/朝轴前瞻"实测会把车猛地甩向场地中间，已撤销。
             const bool camp_mode = updateCampMode();
-            // ★ 提速门（2026-11-28 用户第三次要求"再提前"）：位置 x>CAMP_BOOST_X 且
-            //   视野里已经没有锥桶（cone_here=false）→ 立刻加速。
-            //   加 !cone_here 是为了防止"锥还没过完就窜出去"（实测会从锥旁冲出场）。
-            const bool camp_speed = (x_ > CAMP_BOOST_X) && !cone_here;
+            // ★ 提速门（2026-11-28 用户第三次要求"再提前"）：位置 x>CAMP_BOOST_X 立刻加速。
+            //   去掉"视野无锥"条件：实测第三排的锥会一直在画面里，导致提速被拖到很晚。
+            const bool camp_speed = (x_ > CAMP_BOOST_X);
             if (camp_mode) {
                 if (std::abs(dy) < CAMP_MAX_LAT) {
                     const bool final_align = (dist < CAMP_FINAL_ALIGN_DIST);
                     yaw_cmd = (!final_align && std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
                 }
+            }
+            // ★ 终点极近处禁止"瞄准目标点"（2026-11-28 修复甩头出界）：
+            //   当 dx、dy 同时变小时 atan2(dy,dx) 会剧烈摆动（dx→0 时趋向 ±90°），
+            //   实测红卡已经进营地还被这一个奇异点甩向左、直接出界。
+            //   距目标 CAMP_AXIS_HOLD_DIST 以内改为锁定 +x（营地对称轴方向）。
+            if (dist < CAMP_AXIS_HOLD_DIST) {
+                yaw_cmd = yaw_to_x;
             }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
