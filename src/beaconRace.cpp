@@ -241,7 +241,8 @@ static constexpr double CAMP_AXIS_HOLD_DIST = 0.28;
 // ★ 营地段（x>CAMP_BOOST_X）朝对称轴收敛时的航向限幅，防大角度甩头
 static constexpr double CAMP_AIM_MAX = 0.45;   // rad，约 26°
 // ★ 营地段转向速度增益（用户 2026-11-28："转向速度加快一点点"）
-static constexpr double CAMP_STEER_GAIN = 1.20;
+//   1.20 实测末端冲刺变慢（转向大时底盘压速度），回退到 1.10 只加一点点。
+static constexpr double CAMP_STEER_GAIN = 1.10;
 static constexpr double CAMP_BOOST_FALLBACK_X = 6.55; // 已弃用的姿态兜底门（保留常量避免编译告警）
 static constexpr double CAMP_BOOST_YAW_TOL = 0.35;    // 已弃用：姿态门已取消
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
@@ -1247,13 +1248,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                     yaw_cmd = (!final_align && std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
                 }
             }
-            // ★ 营地段（x>CAMP_BOOST_X）强制"朝对称轴收敛"（2026-11-28）：
-            //   上面的入口摆平项 k 会把航向拉成平行 +x（k 最大 0.85），横向没对齐时
-            //   车就一路平行走、不往轴线上收，现场表现"没有朝营地对称轴行驶"。
-            //   这里在营地段直接改用"瞄准轴上的目标点"，并限幅防甩头。
-            if (camp_speed) {
-                yaw_cmd = clampd(yaw_err, -CAMP_AIM_MAX, CAMP_AIM_MAX);
-            }
+            // ★ 营地段不再强行改写航向（2026-11-28 回退）：上一版把营地段航向换成
+            //   "瞄准轴上的目标点 + 26° 限幅"，实测末端冲刺反而变慢/变晚——
+            //   转向幅度加大后底盘会压速度。这里恢复 v2.5 航向，只保留下面的近终点锁 +x。
+            (void)camp_speed;
             // ★ 终点极近处禁止"瞄准目标点"（2026-11-28 修复甩头出界）：
             //   当 dx、dy 同时变小时 atan2(dy,dx) 会剧烈摆动（dx→0 时趋向 ±90°），
             //   实测红卡已经进营地还被这一个奇异点甩向左、直接出界。
