@@ -235,10 +235,15 @@ static constexpr double CAMP_EXIT_VX_MAX     = 1.15;  // 营地段速度绝对�
 // ★ 提速段终点前收油：距离 0.55 m 起线性回收，0.20 m 时完全收回为 1 倍，
 //   避免 1.15 m/s 在最后 0.6 m 内刹不住冲过目标点。
 // ★ 提速门见 camp_speed（出第三排 + 车头对准对称轴）
+// ★ 陀螺零偏（2026-11-28）：启动前 1.5 s 的样本不可信，丢弃后再平均；结果超 0.02 视为无效、按 0 处理。
+static constexpr int    GYRO_BIAS_SETTLE_FRAMES = 75;   // 50Hz 下约 1.5 s
+static constexpr double GYRO_BIAS_MAX = 0.02;           // rad/s，超过就认为估错了
 // ★ 提速触发位置：x 过这里立刻按 2 倍跑（2026-11-28 第三次调整，6.30 -> 6.10 再提前）。
 //   6.10 仍在第三排末端之前一点点，但此时车已经在往外走了；如果现场发现擦到最后一个锥，
 //   这个值要往回加（例如 6.20）。
 static constexpr double CAMP_BOOST_X = 6.10;
+// ★ 提速时的车头容差：|车头角| 小于它才提速（25°）
+static constexpr double CAMP_BOOST_YAW_MAX = 0.44;   // rad，约 25°
 // ★ 距目标这么近就锁死 +x（不再瞄准目标点）：防止 atan2(dy,dx) 在终点附近奇异化后甩头出界。
 static constexpr double CAMP_AXIS_HOLD_DIST = 0.28;
 // ★ 营地段（x>CAMP_BOOST_X）朝对称轴收敛时的航向限幅，防大角度甩头
@@ -732,8 +737,9 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
     uint64_t sf_frames_ = 0;       // 累计收到的底盘帧数
     double   sf_frames_last_ = 0;  // 上一次打印时的计数
     double x_ = 0, y_ = 0, yaw_ = 0;
-    double gyro_bias_ = 0, bias_sum_ = 0;
-    int bias_n_ = 0;
+    double gyro_bias_ = 0, bias_sum_ = 0;    int bias_n_ = 0;
+    int    bias_seen_ = 0;        // 已收到的陀螺样本数（含被丢弃的启动瞬态）
+    double bias_raw_ = 0;         // 限幅前的原始平均值（仅用于日志）
 
     double cmd_vx_ = 0, cmd_wz_ = 0;
     bool avoiding_ = false;
@@ -807,9 +813,16 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
 
         if (phase_ == Phase::WaitCard) {
             if (cfg_.use_gyro_yaw) {
-                bias_sum_ += sd.gyro_z;
-                ++bias_n_;
-                gyro_bias_ = bias_sum_ / bias_n_;
+                // ★ 零偏采样（2026-11-28 修）：实测启动瞬间陀螺输出有瞬态，
+                //   直接平均会得到 -0.06~-0.08 rad/s 的假零偏，导致整轮航向以 3.5°/s 漂，
+                //   表现为"车停着车头角还在涨"。这里①丢弃前 1.5 s 样本 ②结果超 0.02 直接按 0。
+                ++bias_seen_;
+                if (bias_seen_ > GYRO_BIAS_SETTLE_FRAMES) {
+                    bias_sum_ += sd.gyro_z;
+                    ++bias_n_;
+                    bias_raw_ = bias_sum_ / bias_n_;
+                    gyro_bias_ = (std::abs(bias_raw_) > GYRO_BIAS_MAX) ? 0.0 : bias_raw_;
+                }
             }
             x_ = y_ = yaw_ = 0;
             return;
@@ -1289,9 +1302,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             // ★ 2026-11-28：航向恢复验证过的 v2.5 逻辑（带 0.3s 延时 + 0.45m 闸门）。
             //   之前两版"出第三排立刻摆正/朝轴前瞻"实测会把车猛地甩向场地中间，已撤销。
             const bool camp_mode = updateCampMode();
-            // ★ 提速门（2026-11-28 用户第三次要求"再提前"）：位置 x>CAMP_BOOST_X 立刻加速。
-            //   去掉"视野无锥"条件：实测第三排的锥会一直在画面里，导致提速被拖到很晚。
-            const bool camp_speed = (x_ > CAMP_BOOST_X);
+            // ★ 提速门：x>CAMP_BOOST_X 且车头已大致对准 +x（偏差 <25°）才提速。
+            //   蓝卡实测：出第三排出时车头偏 51°，照样提速 → 斜着横扫 46 cm，
+            //   撞掉第三排从右往左第二个锥。这个门专门防这种"歪着猛冲"。
+            const bool camp_speed = (x_ > CAMP_BOOST_X) && (std::abs(yaw_) < CAMP_BOOST_YAW_MAX);
             if (camp_mode) {
                 if (std::abs(dy) < CAMP_MAX_LAT) {
                     const bool final_align = (dist < CAMP_FINAL_ALIGN_DIST);
@@ -1395,7 +1409,8 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         std::cout << "\nCARD=" << color
                   << " base(" << base_x_ << "," << base_y_ << ")"
                   << " goal(" << goal_x_ << "," << goal_y_ << ")"
-                  << " gyro_bias=" << gyro_bias_ << " rad/s n=" << bias_n_ << "\n";
+                  << " gyro_bias=" << gyro_bias_ << " rad/s n=" << bias_n_
+         << " raw=" << bias_raw_ << "\n";
     }
 
     void update(const cv::Mat& hsv, const Track* track,
