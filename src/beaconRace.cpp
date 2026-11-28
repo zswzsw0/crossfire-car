@@ -249,13 +249,18 @@ static constexpr double GYRO_BIAS_MAX = 0.02;           // rad/s，超过就认�
 static constexpr double CAMP_BOOST_X = 6.10;
 // ★ 提速时的车头容差：|车头角| 小于它才提速（25°）
 static constexpr double CAMP_BOOST_YAW_MAX = 0.44;   // rad，约 25°
+// ★ 第一排→第二排之间提速（2026-11-28 用户要求）：
+//   第一排避让结束、第二排锥桶还没识别到的那段直路，速度提高 1.25 倍。
+static constexpr double ROW12_X0 = 2.00;   // 区间起点 x(m)（第一排避让基本结束处）
+static constexpr double ROW12_X1 = 2.95;   // 区间终点 x(m)（第二排开始前）
+static constexpr double ROW12_VX_GAIN = 1.25;
 // ★ 距目标这么近就锁死 +x（不再瞄准目标点）：防止 atan2(dy,dx) 在终点附近奇异化后甩头出界。
 static constexpr double CAMP_AXIS_HOLD_DIST = 0.28;
 // ★ 营地段（x>CAMP_BOOST_X）朝对称轴收敛时的航向限幅，防大角度甩头
 static constexpr double CAMP_AIM_MAX = 0.45;   // rad，约 26°
 // ★ 营地段转向速度增益（用户 2026-11-28："转向速度加快一点点"）
 //   1.20 实测末端冲刺变慢（转向大时底盘压速度），回退到 1.10 只加一点点。
-static constexpr double CAMP_STEER_GAIN = 1.10;
+static constexpr double CAMP_STEER_GAIN = 1.05;   // 1.20 -> 1.10 -> 1.05（用户：只保留一半的增幅）
 static constexpr double CAMP_BOOST_FALLBACK_X = 6.55; // 已弃用的姿态兜底门（保留常量避免编译告警）
 static constexpr double CAMP_BOOST_YAW_TOL = 0.35;    // 已弃用：姿态门已取消
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
@@ -1385,6 +1390,8 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             // ★ 巡线也要有航向保护：车头歪超过 LOST_YAW 就降速，避免「歪着全速冲」。
             //   实测：航向 -47.5° 时仍走 0.570，一帧横移 0.80m，y 一路冲到 -1.624。
             if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
+            // ★ 第一排→第二排之间提速 1.25 倍（2026-11-28 用户要求；有锥时不提速）
+            if (!cone_here && x_ > ROW12_X0 && x_ < ROW12_X1) vx *= ROW12_VX_GAIN;
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
@@ -1394,7 +1401,9 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         if (vx > 0.0 && x_ > MID_X0 && x_ < MID_X1)
             vx *= MID_VX_GAIN;
         if (cone_here) vx = std::min(vx, 0.38);   // 丢线遇锥限速 ×1.3
-        if (!cone_here && vx > 0.0 && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
+        if (!cone_here && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
+        // ★ 第一排→第二排之间提速 1.25 倍（丢线时同样生效；有锥时不提速）
+        if (!cone_here && x_ > ROW12_X0 && x_ < ROW12_X1) vx *= ROW12_VX_GAIN;
         send(vx, clampd(cfg_.yaw_p * yaw_err_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
         erro_ = yaw_err_cmd;
         return false;
