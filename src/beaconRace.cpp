@@ -46,7 +46,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
 #include <stdexcept>
 #include <fstream>
 #include <iostream>
@@ -57,8 +56,6 @@
 
 #include <opencv2/opencv.hpp>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #include "camera.hpp"
 #include "carProtocol.hpp"
@@ -217,14 +214,9 @@ static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
 //   限幅后改成小角度侧移，留出调整余地。仅红卡生效，蓝卡仍用 AVOID_YAW_MAX。
 static constexpr double RED_THIRD_ROW_YAW_MAX = 0.35;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
-// ★ 据点到点判据（2026-11-28）：原来沿用终点容差 14 cm，车停在圆边就停，
-//   每轮停点差 5~10 cm。据点单独用 5 cm。
-static constexpr double BASE_POS_TOL = 0.05;
-// ★ 到点后的"补跑一段"改成按距离（原来按 0.15/0.25 秒盲跑，车速不同距离就不同）
-static constexpr double BASE_EXTRA_BLUE_DIST = 0.035;  // m（≈ 原 0.15 s × 0.234 m/s）
-static constexpr double BASE_EXTRA_RED_DIST  = 0.065;  // m（≈ 原 0.25 s × 0.26 m/s）
+static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
 // ★ 红卡：跑到红色据点的运行时间延长（2026-11-24；只加时间，不改速度）
-static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 已弃用：补跑改按距离，保留常量避免告警
+static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 0.15 -> 0.25（再延长 0.1s）
 // ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
 static constexpr double CAMP_SPEED_GAIN     = 1.50;  // 1.25 -> 1.50（要求再提 1.2 倍）
@@ -240,27 +232,10 @@ static constexpr double CAMP_EXIT_VX_MAX     = 1.15;  // 营地段速度绝对�
 // ★ 提速段终点前收油：距离 0.55 m 起线性回收，0.20 m 时完全收回为 1 倍，
 //   避免 1.15 m/s 在最后 0.6 m 内刹不住冲过目标点。
 // ★ 提速门见 camp_speed（出第三排 + 车头对准对称轴）
-// ★ 陀螺零偏（2026-11-28）：启动前 1.5 s 的样本不可信，丢弃后再平均；结果超 0.02 视为无效、按 0 处理。
-static constexpr int    GYRO_BIAS_SETTLE_FRAMES = 75;   // 50Hz 下约 1.5 s
-static constexpr double GYRO_BIAS_MAX = 0.02;           // rad/s，超过就认为估错了
 // ★ 提速触发位置：x 过这里立刻按 2 倍跑（2026-11-28 第三次调整，6.30 -> 6.10 再提前）。
 //   6.10 仍在第三排末端之前一点点，但此时车已经在往外走了；如果现场发现擦到最后一个锥，
 //   这个值要往回加（例如 6.20）。
 static constexpr double CAMP_BOOST_X = 6.10;
-// ★ 提速时的车头容差：|车头角| 小于它才提速（25°）
-static constexpr double CAMP_BOOST_YAW_MAX = 0.44;   // rad，约 25°
-// ★ 第一排→第二排之间提速（2026-11-28 用户要求）：
-//   第一排避让结束、第二排锥桶还没识别到的那段直路，速度提高 1.25 倍。
-static constexpr double ROW12_X0 = 2.00;   // 区间起点 x(m)（第一排避让基本结束处）
-static constexpr double ROW12_X1 = 2.95;   // 区间终点 x(m)（第二排开始前）
-static constexpr double ROW12_VX_GAIN = 1.25;
-// ★ 距目标这么近就锁死 +x（不再瞄准目标点）：防止 atan2(dy,dx) 在终点附近奇异化后甩头出界。
-static constexpr double CAMP_AXIS_HOLD_DIST = 0.28;
-// ★ 营地段（x>CAMP_BOOST_X）朝对称轴收敛时的航向限幅，防大角度甩头
-static constexpr double CAMP_AIM_MAX = 0.45;   // rad，约 26°
-// ★ 营地段转向速度增益（用户 2026-11-28："转向速度加快一点点"）
-//   1.20 实测末端冲刺变慢（转向大时底盘压速度），回退到 1.10 只加一点点。
-static constexpr double CAMP_STEER_GAIN = 1.05;   // 1.20 -> 1.10 -> 1.05（用户：只保留一半的增幅）
 static constexpr double CAMP_BOOST_FALLBACK_X = 6.55; // 已弃用的姿态兜底门（保留常量避免编译告警）
 static constexpr double CAMP_BOOST_YAW_TOL = 0.35;    // 已弃用：姿态门已取消
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
@@ -508,53 +483,6 @@ static std::string exeDir()
     return p == std::string::npos ? std::string(".") : s.substr(0, p);
 }
 
-// ★ 自动日志（2026-11-28）：手敲 ./beaconRace 运行时输出只打在屏幕上、事后无从分析，
-//   这里把 stdout 同时"抄"一份到 run_logs/auto_<时间>.log（任何启动方式都写）。
-namespace {
-class TeeBuf : public std::streambuf {
-public:
-    TeeBuf(std::streambuf* a, std::streambuf* b) : a_(a), b_(b) {}
-protected:
-    int overflow(int c) override {
-        if (c == EOF) return 0;
-        a_->sputc(static_cast<char>(c));
-        b_->sputc(static_cast<char>(c));
-        return c;
-    }
-    std::streamsize xsputn(const char* s, std::streamsize n) override {
-        a_->sputn(s, n);
-        b_->sputn(s, n);
-        return n;
-    }
-    int sync() override { a_->pubsync(); b_->pubsync(); return 0; }
-private:
-    std::streambuf* a_;   // 终端
-    std::streambuf* b_;   // 日志文件
-};
-
-std::ofstream* g_autoLog = nullptr;      // 故意不释放：生命周期要长于 cout
-std::string    g_autoLogPath;
-
-// 返回日志路径；失败返回空串。
-static std::string startAutoLog(bool force = true)
-{
-    if (!force && !::isatty(STDOUT_FILENO)) return std::string();
-    const std::string dir = exeDir() + "/run_logs";
-    ::mkdir(dir.c_str(), 0755);          // 已存在时返回 -1，忽略
-    char stamp[32] = {0};
-    std::time_t t = std::time(nullptr);
-    std::tm tmv{};
-    localtime_r(&t, &tmv);
-    std::strftime(stamp, sizeof(stamp), "%Y%m%d_%H%M%S", &tmv);
-    g_autoLogPath = dir + "/auto_" + stamp + ".log";
-    g_autoLog = new std::ofstream(g_autoLogPath.c_str(), std::ios::out | std::ios::trunc);
-    if (!g_autoLog || !g_autoLog->good()) { delete g_autoLog; g_autoLog = nullptr; return std::string(); }
-    std::cout.rdbuf(new TeeBuf(std::cout.rdbuf(), g_autoLog->rdbuf()));
-    std::cout << "日志文件: " << g_autoLogPath << std::endl;
-    return g_autoLogPath;
-}
-}  // namespace
-
 static void clampHue(std::array<int, 6>& h)
 {
     for (int i = 0; i < 6; ++i) {
@@ -732,7 +660,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
     std::chrono::steady_clock::time_point wait_t0_{};
     // ★ 蓝卡：到达据点后继续按原速多跑 0.15 s（2026-11-24，不改变任何速度参数）
     bool   base_extra_active_ = false;
-    double base_extra_sx_ = 0, base_extra_sy_ = 0;   // 补跑起点（按距离补跑用）
+    std::chrono::steady_clock::time_point base_extra_t0_{};
     double base_extra_vx_ = 0.234;
     // ★ 蓝卡进营地模式：x 过第三排后计时 CAMP_MODE_DELAY_SEC 才置位
     bool   camp_timer_started_ = false;
@@ -747,9 +675,8 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
     uint64_t sf_frames_ = 0;       // 累计收到的底盘帧数
     double   sf_frames_last_ = 0;  // 上一次打印时的计数
     double x_ = 0, y_ = 0, yaw_ = 0;
-    double gyro_bias_ = 0, bias_sum_ = 0;    int bias_n_ = 0;
-    int    bias_seen_ = 0;        // 已收到的陀螺样本数（含被丢弃的启动瞬态）
-    double bias_raw_ = 0;         // 限幅前的原始平均值（仅用于日志）
+    double gyro_bias_ = 0, bias_sum_ = 0;
+    int bias_n_ = 0;
 
     double cmd_vx_ = 0, cmd_wz_ = 0;
     bool avoiding_ = false;
@@ -823,16 +750,9 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
 
         if (phase_ == Phase::WaitCard) {
             if (cfg_.use_gyro_yaw) {
-                // ★ 零偏采样（2026-11-28 修）：实测启动瞬间陀螺输出有瞬态，
-                //   直接平均会得到 -0.06~-0.08 rad/s 的假零偏，导致整轮航向以 3.5°/s 漂，
-                //   表现为"车停着车头角还在涨"。这里①丢弃前 1.5 s 样本 ②结果超 0.02 直接按 0。
-                ++bias_seen_;
-                if (bias_seen_ > GYRO_BIAS_SETTLE_FRAMES) {
-                    bias_sum_ += sd.gyro_z;
-                    ++bias_n_;
-                    bias_raw_ = bias_sum_ / bias_n_;
-                    gyro_bias_ = (std::abs(bias_raw_) > GYRO_BIAS_MAX) ? 0.0 : bias_raw_;
-                }
+                bias_sum_ += sd.gyro_z;
+                ++bias_n_;
+                gyro_bias_ = bias_sum_ / bias_n_;
             }
             x_ = y_ = yaw_ = 0;
             return;
@@ -1082,15 +1002,13 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         return pickNearest(on, min_area, out);
     }
 
-    bool gotoLocal(double tx, double ty, bool face_x, double tol = -1.0)
+    bool gotoLocal(double tx, double ty, bool face_x)
     {
-        // tol < 0 表示沿用 cfg_.goal_pos_tol；据点单独传一个更小的值，让它真的走到点上。
-        const double arrive_tol = (tol >= 0.0) ? tol : cfg_.goal_pos_tol;
         double dx = tx - x_, dy = ty - y_;
         double dist = std::hypot(dx, dy);
         double bearing = std::atan2(dy, dx);
         double yaw_err = wrapPi(bearing - yaw_);
-        if (dist > arrive_tol) {
+        if (dist > cfg_.goal_pos_tol) {
             double vx = 0, wz = clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max);
             // ★ 红卡在据点限制转向角速度：满舵转向 1 秒就转 67°，
             //   而到据点的方位角只需转 44°，于是转过头、先向右甩一段再拐回来。
@@ -1314,26 +1232,15 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             // ★ 2026-11-28：航向恢复验证过的 v2.5 逻辑（带 0.3s 延时 + 0.45m 闸门）。
             //   之前两版"出第三排立刻摆正/朝轴前瞻"实测会把车猛地甩向场地中间，已撤销。
             const bool camp_mode = updateCampMode();
-            // ★ 提速门：x>CAMP_BOOST_X 且车头已大致对准 +x（偏差 <25°）才提速。
-            //   蓝卡实测：出第三排出时车头偏 51°，照样提速 → 斜着横扫 46 cm，
-            //   撞掉第三排从右往左第二个锥。这个门专门防这种"歪着猛冲"。
-            const bool camp_speed = (x_ > CAMP_BOOST_X) && (std::abs(yaw_) < CAMP_BOOST_YAW_MAX);
+            // ★ 提速门（2026-11-28 用户第三次要求"再提前"）：位置 x>CAMP_BOOST_X 且
+            //   视野里已经没有锥桶（cone_here=false）→ 立刻加速。
+            //   加 !cone_here 是为了防止"锥还没过完就窜出去"（实测会从锥旁冲出场）。
+            const bool camp_speed = (x_ > CAMP_BOOST_X) && !cone_here;
             if (camp_mode) {
                 if (std::abs(dy) < CAMP_MAX_LAT) {
                     const bool final_align = (dist < CAMP_FINAL_ALIGN_DIST);
                     yaw_cmd = (!final_align && std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
                 }
-            }
-            // ★ 营地段不再强行改写航向（2026-11-28 回退）：上一版把营地段航向换成
-            //   "瞄准轴上的目标点 + 26° 限幅"，实测末端冲刺反而变慢/变晚——
-            //   转向幅度加大后底盘会压速度。这里恢复 v2.5 航向，只保留下面的近终点锁 +x。
-            (void)camp_speed;
-            // ★ 终点极近处禁止"瞄准目标点"（2026-11-28 修复甩头出界）：
-            //   当 dx、dy 同时变小时 atan2(dy,dx) 会剧烈摆动（dx→0 时趋向 ±90°），
-            //   实测红卡已经进营地还被这一个奇异点甩向左、直接出界。
-            //   距目标 CAMP_AXIS_HOLD_DIST 以内改为锁定 +x（营地对称轴方向）。
-            if (dist < CAMP_AXIS_HOLD_DIST) {
-                yaw_cmd = yaw_to_x;
             }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
@@ -1364,9 +1271,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                               << " vx=" << vx << std::endl;
                 }
             }
-            double wz = cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz;
-            if (camp_speed) wz *= CAMP_STEER_GAIN;   // ★ 营地段转向快一点点
-            send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
+            send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = yaw_cmd;
             return false;
         }
@@ -1390,8 +1295,6 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             // ★ 巡线也要有航向保护：车头歪超过 LOST_YAW 就降速，避免「歪着全速冲」。
             //   实测：航向 -47.5° 时仍走 0.570，一帧横移 0.80m，y 一路冲到 -1.624。
             if (std::abs(yaw_err_cmd) > LOST_YAW) vx = std::min(vx, LOST_VX);
-            // ★ 第一排→第二排之间提速 1.25 倍（2026-11-28 用户要求；有锥时不提速）
-            if (!cone_here && x_ > ROW12_X0 && x_ < ROW12_X1) vx *= ROW12_VX_GAIN;
             send(vx, clampd(wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = vis_err / CENTER_X;
             return false;
@@ -1401,9 +1304,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         if (vx > 0.0 && x_ > MID_X0 && x_ < MID_X1)
             vx *= MID_VX_GAIN;
         if (cone_here) vx = std::min(vx, 0.38);   // 丢线遇锥限速 ×1.3
-        if (!cone_here && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
-        // ★ 第一排→第二排之间提速 1.25 倍（丢线时同样生效；有锥时不提速）
-        if (!cone_here && x_ > ROW12_X0 && x_ < ROW12_X1) vx *= ROW12_VX_GAIN;
+        if (!cone_here && vx > 0.0 && x_ < DEPART_X) vx = std::max(vx, DEPART_VX);   // 出据点提速下限
         send(vx, clampd(cfg_.yaw_p * yaw_err_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
         erro_ = yaw_err_cmd;
         return false;
@@ -1425,8 +1326,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         std::cout << "\nCARD=" << color
                   << " base(" << base_x_ << "," << base_y_ << ")"
                   << " goal(" << goal_x_ << "," << goal_y_ << ")"
-                  << " gyro_bias=" << gyro_bias_ << " rad/s n=" << bias_n_
-         << " raw=" << bias_raw_ << "\n";
+                  << " gyro_bias=" << gyro_bias_ << " rad/s n=" << bias_n_ << "\n";
     }
 
     void update(const cv::Mat& hsv, const Track* track,
@@ -1466,13 +1366,12 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         if (!have_odom_) { sendStop(); return; }
 
         if (phase_ == Phase::NavBase) {
-            // ★ 到点后再补跑一小段（2026-11-28 改成按距离）：原来按固定时长盲跑，
-            //   车速每轮不同 → 补跑距离也每轮不同，停点就不统一。
-            const double extra_dist = (card_color_ == "blue") ? BASE_EXTRA_BLUE_DIST
-                                                              : BASE_EXTRA_RED_DIST;
+            // ★ 到达据点判定成立后，先按原速继续跑 extra_sec 秒再停车（只加时间，不改速度）
+            const double extra_sec = (card_color_ == "blue") ? BASE_EXTRA_BLUE_SEC : BASE_EXTRA_RED_SEC;
             if (base_extra_active_) {
-                const double moved = std::hypot(x_ - base_extra_sx_, y_ - base_extra_sy_);
-                if (moved < extra_dist) {
+                double ex = std::chrono::duration<double>(
+                                std::chrono::steady_clock::now() - base_extra_t0_).count();
+                if (ex < extra_sec) {
                     send(base_extra_vx_, 0.0);
                     return;
                 }
@@ -1480,15 +1379,14 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 phase_ = Phase::WaitBase;
                 wait_t0_ = std::chrono::steady_clock::now();
                 sendStop();
-                std::cout << "\n到达据点（已补跑 "
-                          << extra_dist << "m），停车 " << cfg_.base_wait_sec << " 秒\n";
+                std::cout << "\n到达据点（已多加 "
+                          << extra_sec << "s），停车 " << cfg_.base_wait_sec << " 秒\n";
                 return;
             }
-            if (gotoLocal(base_x_, base_y_, true, BASE_POS_TOL)) {
-                if (extra_dist > 0.0) {
+            if (gotoLocal(base_x_, base_y_, true)) {
+                if (extra_sec > 0.0) {
                     base_extra_active_ = true;
-                    base_extra_sx_ = x_;
-                    base_extra_sy_ = y_;
+                    base_extra_t0_ = std::chrono::steady_clock::now();
                     return;
                 }
                 phase_ = Phase::WaitBase;
@@ -1769,8 +1667,6 @@ int main(int argc, char** argv)
 //     第 1050 行：--config 指定的文件            ← 优先级最高
 //   「改了 cfg 没反应」十有八九是程序所在目录那份把它盖住了。
 //   排查：在板子上分别 ls -l /home/root/beacon_race.cfg 和当前目录下的同名文件。
-    // ★ 先开自动日志，后面所有输出（含"已读取配置"）都会同时落盘（仅终端运行时）
-    startAutoLog();
     loadConfigFile(exeDir() + "/beacon_race.cfg", cfg, false);
     loadConfigFile("beacon_race.cfg", cfg, false);
     if (!config_arg.empty() && !loadConfigFile(config_arg, cfg, true)) return 1;
