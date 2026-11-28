@@ -1,0 +1,4 @@
+日志文件: /home/root/run_logs/auto_20210324_131547.log
+已读取配置 /home/root/beacon_race.cfg (42 项)
+已读取配置 beacon_race.cfg (42 项)
+Open serial port success: /dev/ttyUSB0, baudrate: 115200
