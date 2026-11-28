@@ -221,6 +221,16 @@ static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 0.15 -> 0.25（再延长
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
 static constexpr double CAMP_SPEED_GAIN     = 1.50;  // 1.25 -> 1.50（要求再提 1.2 倍）
 static constexpr double CAMP_SPEED_GAIN_RED = 1.73;  // 1.44 -> 1.73（要求再提 1.2 倍，1.728 取 1.73）
+// ★ 出第三排（营地段）再提速 2 倍（2026-11-28 要求）。只作用于进入营地模式之后
+//   （x>THIRD_ROW_X1 且延时已到），前三排的所有限速/避让逻辑完全不动。
+//   实测营地段原本 0.55 m/s，×2 后约 1.10 m/s；用绝对上限兜住，
+//   防止"接近段 0.80×增益"那一路被放大到 2 m/s 以上冲出场。
+static constexpr double CAMP_EXIT_SPEED_GAIN = 2.00;  // 营地段速度再乘 2 倍
+static constexpr double CAMP_EXIT_VX_MAX     = 1.15;  // 营地段速度绝对上限(m/s)
+// ★ 营地段"车头平行中轴"（2026-11-28 要求）：航向锁定 +x 直行，
+//   横向偏差只用一个有界小角度去平移纠偏，不再斜着瞄准目标点。
+static constexpr double CAMP_AXIS_LAT_K   = 0.45;  // 横向偏差 -> 航向修正 (rad/m)
+static constexpr double CAMP_AXIS_LAT_MAX = 0.12;  // 修正量上限(rad，约 7°)
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
 static constexpr double CAMP_LAT_DEADBAND   = 0.12;
@@ -1221,8 +1231,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 //   ★ 终点前 CAMP_FINAL_ALIGN_DIST 内取消死区：这段只收敛，保证
                 //     最后落在营地对称轴上（2026-11-26 实测被死区挡在 -1.005）。
                 if (std::abs(dy) < CAMP_MAX_LAT) {
-                    const bool final_align = (dist < CAMP_FINAL_ALIGN_DIST);
-                    yaw_cmd = (!final_align && std::abs(dy) < CAMP_LAT_DEADBAND) ? yaw_to_x : yaw_err;
+                    // ★ 2026-11-28：营地段车头平行中轴（+x）直行，
+                    //   横向偏差只用一个有界小角度做平移纠偏，不再斜瞄目标点。
+                    const double lat = clampd(CAMP_AXIS_LAT_K * dy,
+                                              -CAMP_AXIS_LAT_MAX, CAMP_AXIS_LAT_MAX);
+                    yaw_cmd = wrapPi(yaw_to_x + lat);
                 }
             }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
@@ -1240,7 +1253,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 // 营地内：完全保持原减速曲线
                 vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);
             }
-            if (camp_mode) vx *= ((card_color_ == "blue") ? CAMP_SPEED_GAIN : CAMP_SPEED_GAIN_RED);   // 营地内提速：蓝 1.25x / 红 1.20x
+            if (camp_mode) {   // ★ 营地内提速：原倍率 × 2，并用绝对上限兜住（2026-11-28）
+                vx *= ((card_color_ == "blue") ? CAMP_SPEED_GAIN : CAMP_SPEED_GAIN_RED)
+                      * CAMP_EXIT_SPEED_GAIN;
+                vx = std::min(vx, CAMP_EXIT_VX_MAX);
+            }
             send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
             erro_ = yaw_cmd;
             return false;
