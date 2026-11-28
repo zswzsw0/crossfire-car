@@ -226,16 +226,18 @@ static constexpr double CAMP_SPEED_GAIN_RED = 1.73;  // 1.44 -> 1.73（要求再
 //   实测营地段原本 0.55 m/s，×2 后约 1.10 m/s；用绝对上限兜住，
 //   防止"接近段 0.80×增益"那一路被放大到 2 m/s 以上冲出场。
 static constexpr double CAMP_EXIT_SPEED_GAIN = 2.00;  // 营地段速度再乘 2 倍
-static constexpr double CAMP_EXIT_VX_MAX     = 1.30;  // 营地段速度绝对上限(m/s)，1.15 -> 1.30（现场仍觉偏慢）
+static constexpr double CAMP_EXIT_VX_MAX     = 1.15;  // 营地段速度绝对上限(m/s)：1.30 实测会冲出界，回退 1.15
 // ★ 营地段"车头朝营地对称轴"的方案已撤销（2026-11-28 实测会让车猛地甩向场地中间），
 //   航向恢复为验证过的 v2.5 逻辑：横向偏差在闸门内才追中心点，否则继续瞄准目标点。
 // ★ 提速段终点前收油：距离 0.55 m 起线性回收，0.20 m 时完全收回为 1 倍，
 //   避免 1.15 m/s 在最后 0.6 m 内刹不住冲过目标点。
 // ★ 提速门见 camp_speed（出第三排 + 车头对准对称轴）
-// ★ 提速触发条件里的"已对准营地对称轴"：车头与 +x 轴夹角小于这个值即视为转正，
-//   转正那一刻立即加速（用户 2026-11-28：转向完成、方向对准就直接加速）。
-static constexpr double CAMP_BOOST_YAW_TOL = 0.35;    // rad，约 20°
-static constexpr double CAMP_BOOST_FALLBACK_X = 6.55; // 过了这个 x 还没转正也照样加速（兜底）
+// ★ 提速触发位置：x 过这里立刻按 2 倍跑（2026-11-28 第三次调整，6.30 -> 6.10 再提前）。
+//   6.10 仍在第三排末端之前一点点，但此时车已经在往外走了；如果现场发现擦到最后一个锥，
+//   这个值要往回加（例如 6.20）。
+static constexpr double CAMP_BOOST_X = 6.10;
+static constexpr double CAMP_BOOST_FALLBACK_X = 6.55; // 已弃用的姿态兜底门（保留常量避免编译告警）
+static constexpr double CAMP_BOOST_YAW_TOL = 0.35;    // 已弃用：姿态门已取消
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
 static constexpr double CAMP_LAT_DEADBAND   = 0.04;  // 0.12 -> 0.04：更贴营地对称轴中心线
@@ -1230,11 +1232,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             // ★ 2026-11-28：航向恢复验证过的 v2.5 逻辑（带 0.3s 延时 + 0.45m 闸门）。
             //   之前两版"出第三排立刻摆正/朝轴前瞻"实测会把车猛地甩向场地中间，已撤销。
             const bool camp_mode = updateCampMode();
-            // ★ 提速门（2026-11-28 用户要求）：出第三排 + 车头转正对准营地对称轴，那一刻立即加速；
-            //   兜底：拖到 x>CAMP_BOOST_FALLBACK_X 还没完全转正也照样加速，避免一路 0.55 磨到底。
-            const bool aligned_to_axis = (std::abs(yaw_to_x) < CAMP_BOOST_YAW_TOL);
-            const bool camp_speed = (x_ > THIRD_ROW_X1)
-                                    && (aligned_to_axis || x_ > CAMP_BOOST_FALLBACK_X);
+            // ★ 提速门（2026-11-28 用户第三次要求"再提前"）：位置 x>CAMP_BOOST_X 且
+            //   视野里已经没有锥桶（cone_here=false）→ 立刻加速。
+            //   加 !cone_here 是为了防止"锥还没过完就窜出去"（实测会从锥旁冲出场）。
+            const bool camp_speed = (x_ > CAMP_BOOST_X) && !cone_here;
             if (camp_mode) {
                 if (std::abs(dy) < CAMP_MAX_LAT) {
                     const bool final_align = (dist < CAMP_FINAL_ALIGN_DIST);
