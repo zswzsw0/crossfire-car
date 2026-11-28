@@ -233,6 +233,9 @@ static constexpr double CAMP_EXIT_VX_MAX     = 1.15;  // 营地段速度绝对�
 //   避免 1.15 m/s 在最后 0.6 m 内刹不住冲过目标点。
 static constexpr double CAMP_BOOST_TAPER_D0 = 0.20;  // 完全收回的距离(m)
 static constexpr double CAMP_BOOST_TAPER_D1 = 0.55;  // 开始收回的距离(m)
+// ★ 提速触发条件里的"已对准营地对称轴"：车头与 +x 轴的夹角小于这个值才算转正，
+//   转正那一刻立即加速（用户 2026-11-28 要求：转向完成、方向对准就直接加速）。
+static constexpr double CAMP_BOOST_YAW_TOL = 0.22;  // rad，约 12.6°
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
 static constexpr double CAMP_LAT_DEADBAND   = 0.12;
@@ -1227,9 +1230,10 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             // ★ 2026-11-28：航向恢复验证过的 v2.5 逻辑（带 0.3s 延时 + 0.45m 闸门）。
             //   之前两版"出第三排立刻摆正/朝轴前瞻"实测会把车猛地甩向场地中间，已撤销。
             const bool camp_mode = updateCampMode();
-            // ★ 提速单独一个更早的门：x 一过第三排末端就乘 2，不等营地延时（用户要求）。
-            //   只影响速度，不参与航向决策。
-            const bool camp_speed = (x_ > THIRD_ROW_X1);
+            // ★ 提速门（2026-11-28 用户要求）：出第三排 + **车头已经转正、对准营地对称轴**（+x）
+            //   的那一刻立即加速，不等营地延时；还没转正前不加速，避免边打方向边窜。
+            const bool aligned_to_axis = (std::abs(yaw_to_x) < CAMP_BOOST_YAW_TOL);
+            const bool camp_speed = (x_ > THIRD_ROW_X1) && aligned_to_axis;
             if (camp_mode) {
                 if (std::abs(dy) < CAMP_MAX_LAT) {
                     const bool final_align = (dist < CAMP_FINAL_ALIGN_DIST);
@@ -1260,8 +1264,8 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 // ★ 第一次进入提速段时打印一行，方便现场直接看到"哪一刻开始提速"
                 if (!camp_boost_reported_) {
                     camp_boost_reported_ = true;
-                    std::cout << "\n[提速] 出第三排 x=" << x_ << " y=" << y_
-                              << " 倍率=" << (boost * ((card_color_ == "blue") ? CAMP_SPEED_GAIN : CAMP_SPEED_GAIN_RED))
+                    std::cout << "\n[提速] 对准对称轴后开始加速 x=" << x_ << " y=" << y_
+                              << " 车头偏差=" << (yaw_to_x * 57.2958) << "deg"
                               << " vx=" << vx << std::endl;
                 }
             }
