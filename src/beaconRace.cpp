@@ -227,10 +227,16 @@ static constexpr double CAMP_SPEED_GAIN_RED = 1.73;  // 1.44 -> 1.73（要求再
 //   防止"接近段 0.80×增益"那一路被放大到 2 m/s 以上冲出场。
 static constexpr double CAMP_EXIT_SPEED_GAIN = 2.00;  // 营地段速度再乘 2 倍
 static constexpr double CAMP_EXIT_VX_MAX     = 1.15;  // 营地段速度绝对上限(m/s)
-// ★ 营地段"车头平行中轴"（2026-11-28 要求）：航向锁定 +x 直行，
-//   横向偏差只用一个有界小角度去平移纠偏，不再斜着瞄准目标点。
-static constexpr double CAMP_AXIS_LAT_K   = 0.45;  // 横向偏差 -> 航向修正 (rad/m)
-static constexpr double CAMP_AXIS_LAT_MAX = 0.12;  // 修正量上限(rad，约 7°)
+// ★ 营地段"车头朝营地对称轴"（2026-11-28 要求）：
+//   瞄准对称轴上的前瞻点（前方 CAMP_AIM_LOOKAHEAD 米处那条线），
+//   横向有偏差时斜着切回轴线，到线上后自然变成平行直行。
+//   （实测纯"平行 +x 锁定"在横向偏 0.49 m 时完全收不回来，末端 y 差 27 cm。）
+static constexpr double CAMP_AIM_LOOKAHEAD = 0.55;  // 前瞻距离(m)：至少看向前方这么远
+static constexpr double CAMP_AIM_MAX       = 0.90;  // 单帧航向指令上限(rad，约 51°)，防大角度横切
+// ★ 提速段终点前收油：距离 0.55 m 起线性回收，0.20 m 时完全收回为 1 倍，
+//   避免 1.15 m/s 在最后 0.6 m 内刹不住冲过目标点。
+static constexpr double CAMP_BOOST_TAPER_D0 = 0.20;  // 完全收回的距离(m)
+static constexpr double CAMP_BOOST_TAPER_D1 = 0.55;  // 开始收回的距离(m)
 static constexpr double CAMP_MAX_LAT        = 0.45;  // 进营地模式的横向偏差上限，超过就不追中心点（防掉头冲出场）
 // ★ 蓝卡营地模式的横向死区：|dy| 小于它就直行、不再朝中心追（防纠正过头冲到地图中间）
 static constexpr double CAMP_LAT_DEADBAND   = 0.12;
@@ -1226,20 +1232,14 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
             //   否则会以旧航向斜着加速切进营地。
             const bool camp_mode = updateCampMode() || (x_ > THIRD_ROW_X1);
             if (camp_mode) {
-                // ★ 进营地模式（过第三排再等 CAMP_MODE_DELAY_SEC）：
-                //   横向偏差适中 → 朝营地中心轴 (goal_x, goal_y) 开；
-                //   已到中心线附近（|dy| < CAMP_LAT_DEADBAND）→ 保持 +x 直行。
-                //   保护：|dy| 超过 CAMP_MAX_LAT 说明偏差过大（被撞偏/航向漂了），
-                //   此时代码不追中心点，避免像 20:49 那轮越过目标后掉头冲出场。
-                //   ★ 终点前 CAMP_FINAL_ALIGN_DIST 内取消死区：这段只收敛，保证
-                //     最后落在营地对称轴上（2026-11-26 实测被死区挡在 -1.005）。
-                if (std::abs(dy) < CAMP_MAX_LAT) {
-                    // ★ 2026-11-28：营地段车头平行中轴（+x）直行，
-                    //   横向偏差只用一个有界小角度做平移纠偏，不再斜瞄目标点。
-                    const double lat = clampd(CAMP_AXIS_LAT_K * dy,
-                                              -CAMP_AXIS_LAT_MAX, CAMP_AXIS_LAT_MAX);
-                    yaw_cmd = wrapPi(yaw_to_x + lat);
-                }
+                // ★ 营地段（x>THIRD_ROW_X1 起立即生效）：
+                //   车头朝营地对称轴收敛——瞄准轴上的前瞻点，横向有偏差时斜着切回轴线，
+                //   到线上后自然就是平行直行。
+                //   注意：原来那套「|dy|<CAMP_MAX_LAT 才追轴、否则斜瞄目标点」的闸门已去掉，
+                //   实测进营地时横向偏 0.49 m 会被闸门挡在门外，导致整段沿旧航向直冲。
+                const double look = std::max(goal_x_ - x_, CAMP_AIM_LOOKAHEAD);
+                const double aim  = std::atan2(goal_y_ - y_, look) - yaw_;
+                yaw_cmd = clampd(wrapPi(aim), -CAMP_AIM_MAX, CAMP_AIM_MAX);
             }
             // ★ 速度分区：GOAL_SLOW_DIST 以外按直线速度跑（接近段不提前减速），
             //    以内才进入原来的减速曲线（终点区内速度保持不变）。
@@ -1256,9 +1256,11 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 // 营地内：完全保持原减速曲线
                 vx = clampd(NEAR_VX_P * dist, 0.1125, NEAR_VX_MAX);
             }
-            if (camp_mode) {   // ★ 营地内提速：原倍率 × 2，并用绝对上限兜住（2026-11-28）
-                vx *= ((card_color_ == "blue") ? CAMP_SPEED_GAIN : CAMP_SPEED_GAIN_RED)
-                      * CAMP_EXIT_SPEED_GAIN;
+            if (camp_mode) {   // ★ 营地内提速：原倍率 × 2，带终点前收油 + 绝对上限（2026-11-28）
+                const double taper = clampd((dist - CAMP_BOOST_TAPER_D0)
+                                            / (CAMP_BOOST_TAPER_D1 - CAMP_BOOST_TAPER_D0), 0.0, 1.0);
+                const double boost = 1.0 + (CAMP_EXIT_SPEED_GAIN - 1.0) * taper;
+                vx *= ((card_color_ == "blue") ? CAMP_SPEED_GAIN : CAMP_SPEED_GAIN_RED) * boost;
                 vx = std::min(vx, CAMP_EXIT_VX_MAX);
             }
             send(vx, clampd(cfg_.yaw_p * yaw_cmd + corridor_wz + avoid_wz, -cfg_.vel_z_max, cfg_.vel_z_max));
