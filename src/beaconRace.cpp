@@ -217,9 +217,14 @@ static constexpr double THIRD_ROW_INNER_GAIN = 1.5;
 //   限幅后改成小角度侧移，留出调整余地。仅红卡生效，蓝卡仍用 AVOID_YAW_MAX。
 static constexpr double RED_THIRD_ROW_YAW_MAX = 0.35;
 // ★ 蓝卡：识别到蓝卡后跑到蓝色据点的运行时间多加这么多秒（只加时间，不改速度）
-static constexpr double BASE_EXTRA_BLUE_SEC = 0.15;
+// ★ 据点到点判据（2026-11-28）：原来沿用终点容差 14 cm，车停在圆边就停，
+//   每轮停点差 5~10 cm。据点单独用 5 cm。
+static constexpr double BASE_POS_TOL = 0.05;
+// ★ 到点后的"补跑一段"改成按距离（原来按 0.15/0.25 秒盲跑，车速不同距离就不同）
+static constexpr double BASE_EXTRA_BLUE_DIST = 0.035;  // m（≈ 原 0.15 s × 0.234 m/s）
+static constexpr double BASE_EXTRA_RED_DIST  = 0.065;  // m（≈ 原 0.25 s × 0.26 m/s）
 // ★ 红卡：跑到红色据点的运行时间延长（2026-11-24；只加时间，不改速度）
-static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 0.15 -> 0.25（再延长 0.1s）
+static constexpr double BASE_EXTRA_RED_SEC  = 0.25;  // 已弃用：补跑改按距离，保留常量避免告警
 // ★ 蓝卡进营地模式：过第三排后再等这么久才进入，进入后航向锁 +x、速度乘下面的倍数
 static constexpr double CAMP_MODE_DELAY_SEC = 0.30;
 static constexpr double CAMP_SPEED_GAIN     = 1.50;  // 1.25 -> 1.50（要求再提 1.2 倍）
@@ -722,7 +727,7 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
     std::chrono::steady_clock::time_point wait_t0_{};
     // ★ 蓝卡：到达据点后继续按原速多跑 0.15 s（2026-11-24，不改变任何速度参数）
     bool   base_extra_active_ = false;
-    std::chrono::steady_clock::time_point base_extra_t0_{};
+    double base_extra_sx_ = 0, base_extra_sy_ = 0;   // 补跑起点（按距离补跑用）
     double base_extra_vx_ = 0.234;
     // ★ 蓝卡进营地模式：x 过第三排后计时 CAMP_MODE_DELAY_SEC 才置位
     bool   camp_timer_started_ = false;
@@ -1072,13 +1077,15 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         return pickNearest(on, min_area, out);
     }
 
-    bool gotoLocal(double tx, double ty, bool face_x)
+    bool gotoLocal(double tx, double ty, bool face_x, double tol = -1.0)
     {
+        // tol < 0 表示沿用 cfg_.goal_pos_tol；据点单独传一个更小的值，让它真的走到点上。
+        const double arrive_tol = (tol >= 0.0) ? tol : cfg_.goal_pos_tol;
         double dx = tx - x_, dy = ty - y_;
         double dist = std::hypot(dx, dy);
         double bearing = std::atan2(dy, dx);
         double yaw_err = wrapPi(bearing - yaw_);
-        if (dist > cfg_.goal_pos_tol) {
+        if (dist > arrive_tol) {
             double vx = 0, wz = clampd(cfg_.yaw_p * yaw_err, -cfg_.vel_z_max, cfg_.vel_z_max);
             // ★ 红卡在据点限制转向角速度：满舵转向 1 秒就转 67°，
             //   而到据点的方位角只需转 44°，于是转过头、先向右甩一段再拐回来。
@@ -1450,12 +1457,13 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
         if (!have_odom_) { sendStop(); return; }
 
         if (phase_ == Phase::NavBase) {
-            // ★ 到达据点判定成立后，先按原速继续跑 extra_sec 秒再停车（只加时间，不改速度）
-            const double extra_sec = (card_color_ == "blue") ? BASE_EXTRA_BLUE_SEC : BASE_EXTRA_RED_SEC;
+            // ★ 到点后再补跑一小段（2026-11-28 改成按距离）：原来按固定时长盲跑，
+            //   车速每轮不同 → 补跑距离也每轮不同，停点就不统一。
+            const double extra_dist = (card_color_ == "blue") ? BASE_EXTRA_BLUE_DIST
+                                                              : BASE_EXTRA_RED_DIST;
             if (base_extra_active_) {
-                double ex = std::chrono::duration<double>(
-                                std::chrono::steady_clock::now() - base_extra_t0_).count();
-                if (ex < extra_sec) {
+                const double moved = std::hypot(x_ - base_extra_sx_, y_ - base_extra_sy_);
+                if (moved < extra_dist) {
                     send(base_extra_vx_, 0.0);
                     return;
                 }
@@ -1463,14 +1471,15 @@ bool avoid_inner_ = false;  // ★ 本次避让是否走了「第三排朝中线
                 phase_ = Phase::WaitBase;
                 wait_t0_ = std::chrono::steady_clock::now();
                 sendStop();
-                std::cout << "\n到达据点（已多加 "
-                          << extra_sec << "s），停车 " << cfg_.base_wait_sec << " 秒\n";
+                std::cout << "\n到达据点（已补跑 "
+                          << extra_dist << "m），停车 " << cfg_.base_wait_sec << " 秒\n";
                 return;
             }
-            if (gotoLocal(base_x_, base_y_, true)) {
-                if (extra_sec > 0.0) {
+            if (gotoLocal(base_x_, base_y_, true, BASE_POS_TOL)) {
+                if (extra_dist > 0.0) {
                     base_extra_active_ = true;
-                    base_extra_t0_ = std::chrono::steady_clock::now();
+                    base_extra_sx_ = x_;
+                    base_extra_sy_ = y_;
                     return;
                 }
                 phase_ = Phase::WaitBase;
